@@ -4,8 +4,6 @@ on:
   push:
     tags:
       - 'v*'
-    branches:
-      - main
   workflow_dispatch:
 
 jobs:
@@ -42,7 +40,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tagName: v__VERSION__
+          tagName: app-v__VERSION__
           releaseName: 'NEXOUYA PAD v__VERSION__'
           releaseBody: 'NEXOUYA PAD - Professional high-performance text and code editor with Rust mmap engine and VS Code syntax highlighting.'
           releaseDraft: false
