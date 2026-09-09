@@ -2,68 +2,55 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use memmap2::Mmap;
+use rfd::FileDialog;
 use serde::{Deserialize, Serialize};
 use std::fs::{self, File};
 use std::io::Write;
 use std::path::Path;
-use tauri_plugin_dialog::DialogExt;
 
 #[derive(Serialize, Deserialize)]
 pub struct FileMetadata {
     pub size_bytes: u64,
     pub is_huge: bool,
     pub preview: String,
-    pub total_lines: Option<usize>,
 }
 
-#[derive(Serialize, Deserialize)]
-pub struct DialogSaveResult {
-    pub canceled: bool,
-    pub file_path: Option<String>,
-}
-
-/// Native Open File Dialog (Windows Explorer / Linux GTK FileChooser)
+/// Native Open File Dialog using OS-level File Dialog (Windows Explorer / Linux GTK)
 #[tauri::command]
-async fn open_file_dialog(app: tauri::AppHandle) -> Result<Option<String>, String> {
-    let file_path = app
-        .dialog()
-        .file()
+fn open_file_dialog() -> Result<Option<String>, String> {
+    let file = FileDialog::new()
         .add_filter("All Files (*.*)", &["*"])
-        .add_filter("Text & Code Files", &[
-            "txt", "md", "json", "yaml", "yml", "js", "ts", "py", "rs", "html", "css", "env", "sql", "xml", "toml"
-        ])
-        .blocking_pick_file();
+        .add_filter(
+            "Text & Code Files",
+            &[
+                "txt", "md", "json", "yaml", "yml", "js", "ts", "py", "rs", "html", "css", "env",
+                "sql", "xml", "toml", "log", "ini", "conf",
+            ],
+        )
+        .pick_file();
 
-    match file_path {
-        Some(path) => Ok(Some(path.as_path().unwrap().to_string_lossy().to_string())),
-        None => Ok(None),
-    }
+    Ok(file.map(|p| p.to_string_lossy().to_string()))
 }
 
-/// Native Save File As Dialog (Windows Explorer / Linux GTK FileChooser)
-/// Allows user to pick exact directory and name with any extension
+/// Native Save File Dialog (Always opens "This PC" / File Explorer directory picker)
 #[tauri::command]
-async fn save_file_dialog(
-    app: tauri::AppHandle,
-    default_name: Option<String>,
-) -> Result<Option<String>, String> {
-    let mut dialog = app.dialog().file();
-
-    if let Some(ref name) = default_name {
-        dialog = dialog.set_file_name(name);
-    }
-
-    let file_path = dialog
+fn save_file_dialog(default_name: Option<String>) -> Result<Option<String>, String> {
+    let mut dialog = FileDialog::new()
         .add_filter("All Files (*.*)", &["*"])
-        .add_filter("Text & Code Files", &[
-            "txt", "md", "json", "yaml", "yml", "js", "ts", "py", "rs", "html", "css", "env", "sql", "xml", "toml"
-        ])
-        .blocking_save_file();
+        .add_filter(
+            "Text & Code Files",
+            &[
+                "txt", "md", "json", "yaml", "yml", "js", "ts", "py", "rs", "html", "css", "env",
+                "sql", "xml", "toml",
+            ],
+        );
 
-    match file_path {
-        Some(path) => Ok(Some(path.as_path().unwrap().to_string_lossy().to_string())),
-        None => Ok(None),
+    if let Some(name) = default_name {
+        dialog = dialog.set_file_name(&name);
     }
+
+    let file = dialog.save_file();
+    Ok(file.map(|p| p.to_string_lossy().to_string()))
 }
 
 /// High-speed Memory-Mapped inspection
@@ -88,7 +75,6 @@ fn inspect_file(path: String) -> Result<FileMetadata, String> {
         size_bytes: size,
         is_huge,
         preview,
-        total_lines: None,
     })
 }
 

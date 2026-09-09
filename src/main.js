@@ -1,6 +1,6 @@
 /**
  * NEXOUYA PAD - Native Core Logic Engine
- * Tauri 2 Rust Integration (File Dialogs, Mmap Stream) + CodeMirror 5
+ * Tauri 2 Rust Integration (rfd File Dialogs, Mmap Stream) + CodeMirror 5
  */
 
 // Global Application State
@@ -14,16 +14,17 @@ let state = {
   isRTL: localStorage.getItem('nexouya_rtl') === 'true'
 };
 
-// Tauri 2 Native Invocation Helper
-const hasTauri = window.__TAURI_INTERNALS__ !== undefined;
+// Robust Tauri 2 Native Invocation Helper
 async function invokeTauri(cmd, args = {}) {
-  if (hasTauri && window.__TAURI__ && window.__TAURI__.core) {
-    try {
+  try {
+    if (window.__TAURI__ && window.__TAURI__.core && typeof window.__TAURI__.core.invoke === 'function') {
       return await window.__TAURI__.core.invoke(cmd, args);
-    } catch (e) {
-      console.warn(`Tauri command ${cmd} failed:`, e);
-      return null;
     }
+    if (window.__TAURI_INTERNALS__ && typeof window.__TAURI_INTERNALS__.invoke === 'function') {
+      return await window.__TAURI_INTERNALS__.invoke(cmd, args);
+    }
+  } catch (e) {
+    console.error(`Tauri command [${cmd}] failed:`, e);
   }
   return null;
 }
@@ -120,6 +121,8 @@ function initEditor() {
     extraKeys: {
       'Ctrl-S': () => saveFileHandler(),
       'Cmd-S': () => saveFileHandler(),
+      'Ctrl-Shift-S': () => saveAsHandler(),
+      'Cmd-Shift-S': () => saveAsHandler(),
       'Ctrl-O': () => openFileHandler(),
       'Cmd-O': () => openFileHandler(),
       'Ctrl-N': () => createNewTab(),
@@ -336,63 +339,45 @@ async function saveAsHandler() {
   const tab = getActiveTab();
   const defaultName = tab ? tab.title : 'untitled.txt';
 
-  // 1. Try Native OS Save Dialog via Rust (Shows Real Windows Explorer / Linux GTK)
-  const chosenPath = await invokeTauri('save_file_dialog', { defaultName });
-  if (chosenPath) {
-    const fileName = chosenPath.split(/[/\\]/).pop();
-    await writeContentToPath(chosenPath, cmEditor.getValue());
-    if (tab) {
-      tab.title = fileName;
-      tab.filePath = chosenPath;
-      tab.isDirty = false;
-      renderTabs();
-      updateHeaderAndStatus();
-      applySyntaxMode(fileName);
-    }
-    return;
-  }
-
-  // 2. Fallback Web Modal if running in browser
+  // 1. First prompt the Save As dialog where the user can pick a name & extension
   saveFileNameInput.value = defaultName;
   saveDialog.classList.add('show');
   saveFileNameInput.focus();
   saveFileNameInput.select();
 }
 
-async function writeContentToPath(path, content) {
-  const res = await invokeTauri('save_file_direct', { path, contents: content });
-  if (res === null) {
-    // Web fallback download
-    triggerDownload(path, content);
-  }
-}
-
-function triggerDownload(filename, text) {
-  const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-}
-
-// Web Fallback Dialog Handlers
-dialogConfirmBtn.addEventListener('click', () => {
-  const name = saveFileNameInput.value.trim() || 'document.txt';
-  const tab = getActiveTab();
-  if (tab) {
-    tab.title = name;
-    tab.filePath = name;
-    tab.isDirty = false;
-    triggerDownload(name, cmEditor.getValue());
-    renderTabs();
-    updateHeaderAndStatus();
-    applySyntaxMode(name);
-  }
+// User confirmed name in the Save As dialog -> Open OS Directory Picker (This PC / Explorer)
+dialogConfirmBtn.addEventListener('click', async () => {
+  const chosenName = saveFileNameInput.value.trim() || 'untitled.txt';
   saveDialog.classList.remove('show');
+
+  // Trigger Native OS Explorer Save Picker with the customized name
+  const nativeSavePath = await invokeTauri('save_file_dialog', { defaultName: chosenName });
+  if (nativeSavePath) {
+    const finalFileName = nativeSavePath.split(/[/\\]/).pop();
+    await writeContentToPath(nativeSavePath, cmEditor.getValue());
+    const tab = getActiveTab();
+    if (tab) {
+      tab.title = finalFileName;
+      tab.filePath = nativeSavePath;
+      tab.isDirty = false;
+      renderTabs();
+      updateHeaderAndStatus();
+      applySyntaxMode(finalFileName);
+    }
+  } else {
+    // If running in pure web browser or user canceled native dialog, download as fallback
+    const tab = getActiveTab();
+    if (tab) {
+      tab.title = chosenName;
+      tab.filePath = chosenName;
+      tab.isDirty = false;
+      triggerDownload(chosenName, cmEditor.getValue());
+      renderTabs();
+      updateHeaderAndStatus();
+      applySyntaxMode(chosenName);
+    }
+  }
 });
 
 dialogCancelBtn.addEventListener('click', () => saveDialog.classList.remove('show'));
@@ -410,6 +395,25 @@ document.querySelectorAll('.format-chip').forEach(chip => {
   });
 });
 
+async function writeContentToPath(path, content) {
+  const res = await invokeTauri('save_file_direct', { path, contents: content });
+  if (res === null) {
+    triggerDownload(path, content);
+  }
+}
+
+function triggerDownload(filename, text) {
+  const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
 // Drag and Drop
 window.addEventListener('dragover', e => e.preventDefault());
 window.addEventListener('drop', e => {
@@ -425,52 +429,121 @@ window.addEventListener('drop', e => {
 });
 
 // -----------------------------------------------------------------------------
-// FIND & REPLACE BAR LOGIC
+// SEARCH & REPLACE ENGINE WITH MATCH COUNTER & JUMP-TO
 // -----------------------------------------------------------------------------
+let searchMatches = [];
+let currentMatchIndex = -1;
+
 function showFindBar() {
   findBar.classList.add('show');
   findInput.focus();
   findInput.select();
+  updateSearch();
 }
 
 function hideFindBar() {
   findBar.classList.remove('show');
+  clearSearchHighlights();
   if (cmEditor) cmEditor.focus();
 }
 
 findCloseBtn.addEventListener('click', hideFindBar);
 
-findNextBtn.addEventListener('click', () => {
-  if (!cmEditor) return;
-  const q = findInput.value;
-  if (!q) return;
-
-  const cursor = cmEditor.getSearchCursor ? cmEditor.getSearchCursor(q) : null;
-  if (cursor && cursor.findNext()) {
-    cmEditor.setSelection(cursor.from(), cursor.to());
-  }
+findInput.addEventListener('input', () => {
+  updateSearch();
 });
 
-replaceBtn.addEventListener('click', () => {
+findNextBtn.addEventListener('click', () => {
+  if (searchMatches.length === 0) return;
+  currentMatchIndex = (currentMatchIndex + 1) % searchMatches.length;
+  jumpToMatch(currentMatchIndex);
+});
+
+function updateSearch() {
   if (!cmEditor) return;
-  const q = findInput.value;
-  const r = replaceInput.value;
-  if (!q) return;
+  clearSearchHighlights();
+  searchMatches = [];
+  currentMatchIndex = -1;
+
+  const query = findInput.value;
+  if (!query) {
+    updateFindLabel(0, 0);
+    return;
+  }
 
   const text = cmEditor.getValue();
-  const replaced = text.replace(q, r);
-  cmEditor.setValue(replaced);
+  const regex = new RegExp(escapeRegex(query), 'gi');
+  let match;
+
+  while ((match = regex.exec(text)) !== null) {
+    const from = cmEditor.posFromIndex(match.index);
+    const to = cmEditor.posFromIndex(match.index + query.length);
+    searchMatches.push({ from, to });
+  }
+
+  updateFindLabel(searchMatches.length, searchMatches.length > 0 ? 1 : 0);
+
+  if (searchMatches.length > 0) {
+    currentMatchIndex = 0;
+    jumpToMatch(0);
+  }
+}
+
+function jumpToMatch(index) {
+  if (index < 0 || index >= searchMatches.length) return;
+  const { from, to } = searchMatches[index];
+  cmEditor.setSelection(from, to);
+  cmEditor.scrollIntoView({ from, to }, 40);
+  updateFindLabel(searchMatches.length, index + 1);
+}
+
+function updateFindLabel(total, current) {
+  let label = document.getElementById('searchCountBadge');
+  if (!label) {
+    label = document.createElement('span');
+    label.id = 'searchCountBadge';
+    label.style.fontSize = '11px';
+    label.style.color = 'var(--text-dim)';
+    label.style.fontFamily = 'var(--font-code)';
+    label.style.margin = '0 6px';
+    findNextBtn.parentNode.insertBefore(label, findNextBtn);
+  }
+  if (total === 0) {
+    label.textContent = findInput.value ? 'No matches' : '';
+  } else {
+    label.textContent = `${current}/${total} matches`;
+  }
+}
+
+function clearSearchHighlights() {
+  const label = document.getElementById('searchCountBadge');
+  if (label) label.textContent = '';
+}
+
+function escapeRegex(string) {
+  return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+replaceBtn.addEventListener('click', () => {
+  if (!cmEditor || searchMatches.length === 0) return;
+  const replacement = replaceInput.value;
+  const current = searchMatches[currentMatchIndex];
+  if (current) {
+    cmEditor.replaceRange(replacement, current.from, current.to);
+    updateSearch();
+  }
 });
 
 replaceAllBtn.addEventListener('click', () => {
   if (!cmEditor) return;
-  const q = findInput.value;
-  const r = replaceInput.value;
-  if (!q) return;
+  const query = findInput.value;
+  const replacement = replaceInput.value;
+  if (!query) return;
 
   const text = cmEditor.getValue();
-  const replaced = text.split(q).join(r);
+  const replaced = text.split(query).join(replacement);
   cmEditor.setValue(replaced);
+  updateSearch();
 });
 
 // -----------------------------------------------------------------------------
@@ -637,7 +710,7 @@ export const PAD_MANIFEST = {
     "Memory-mapped zero-copy reader for multi-gigabyte files",
     "VS Code precision syntax highlighting"
   ],
-  version: "0.2.0"
+  version: "0.3.0"
 };
 
 console.log("Ready for production.");`;

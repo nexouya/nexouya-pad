@@ -1,7 +1,7 @@
 [package]
 name = "nexouya-pad"
-version = "0.2.0"
-description = "NEXOUYA PAD - Professional high-performance text editor with Rust core & VS Code syntax highlighting"
+version = "0.3.0"
+description = "NEXOUYA PAD - High-performance desktop text & code editor with Rust mmap and native OS dialogs"
 authors = ["nexouya"]
 license = "MIT"
 repository = "https://github.com/nexouya/nexouya-pad"
@@ -17,3 +17,4 @@ serde_json = "1.0"
 tauri-plugin-dialog = "2.0"
 tauri-plugin-fs = "2.0"
 memmap2 = "0.9"
+rfd = "0.15"

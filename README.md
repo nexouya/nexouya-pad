@@ -7,24 +7,27 @@
 
 ## 🌟 10/10 Desktop Features
 
-### 1. 🗂️ Native OS File Dialogs (Windows & Linux)
-- Full integration with **Windows Explorer** and **Linux GTK File Chooser**.
-- Browse directories visually, pick folders, and save with **any custom extension** (`.json`, `.yaml`, `.py`, `.rs`, `.env`, `.md`, `.sql`, etc.) without Windows forcing `.txt` extensions.
+### 1. 🗂️ Native OS File Dialogs (Windows Explorer / Linux GTK)
+- Two-step seamless saving: choose file name and custom format, then browse directories in **This PC / Windows Explorer** to select the exact destination.
+- Save and edit any file format (`.json`, `.yaml`, `.py`, `.rs`, `.env`, `.md`, `.sql`, `.html`, `.css`, etc.) with zero forced `.txt` extensions.
 
-### 2. ⚡ Rust Memory-Mapped File Core (`mmap`)
-- Opens files of any size (from kilobytes to **multi-gigabytes**) instantaneously.
-- Zero UI freezing: reads streamed chunks directly from the disk cache with minimal RAM footprint.
+### 2. 🔍 Real-Time Search & Replace Engine (`Ctrl+F`)
+- Instant, sub-millisecond regex/text scanner with live **match counters** (e.g. `1/120 matches`).
+- Sequential match jump (`Next`), single item replace, and full document bulk replace (`All`).
 
-### 3. 🎨 Precision Engineered UI (Zero AI-Cliché / No AI-Soup)
-- Clean, native desktop feel inspired by Windows 11 and professional developer tooling.
-- **Dark Studio (Default)**, **Clean Paper (Light Mode)**, and **Obsidian Deep (High Contrast)** themes.
-- Dedicated **Find & Replace bar (`Ctrl+F`)** with instant regex/text replacement.
-- Integrated Persian / RTL mode toggle with a single click or hotkey.
+### 3. 🖱️ Windows 11 Context Menu Integration ("Edit with NEXOUYA PAD")
+- Ready-to-use registry configuration (`register-context-menu.reg`) to embed **Edit with NEXOUYA PAD** directly into Windows 11/10 right-click menu for all files and desktop backgrounds.
 
-### 4. 🐧 True Multi-Platform Builds (Windows + Universal Linux)
-- Pre-compiled packages for:
+### 4. ⚡ Rust Memory-Mapped File Core (`mmap`)
+- Handles massive text and code files up to multi-gigabytes without freezing the UI or overwhelming system RAM.
+
+### 5. 💎 Luxury Master Iconography
+- Handcrafted, multi-layered vector 'N' origami prism icon with deep obsidian casing and electric blue/cyan accents in all resolutions (`.ico`, `.png`, `.icns`).
+
+### 6. 🐧 Universal Cross-Platform Builds (Windows + Linux)
+- Automated builds for:
   - **Windows:** `.msi` and setup `.exe`
-  - **Linux:** `.deb` (Ubuntu/Debian), AppImage (Arch, Fedora, OpenSUSE, KDE Plasma, GNOME, Hyprland, Sway)
+  - **Linux:** `.deb` (Ubuntu, Debian, Pop!_OS) and AppImage (Arch, Fedora, openSUSE, KDE Plasma, GNOME, Hyprland, Sway).
 
 ---
 
@@ -34,16 +37,24 @@
 |---|---|
 | `Ctrl+N` | New File / Tab |
 | `Ctrl+O` | Open File (Native Dialog) |
-| `Ctrl+S` | Save Document |
-| `Ctrl+Shift+S` | Save As (Native Explorer / File Chooser) |
+| `Ctrl+S` | Quick Save Document |
+| `Ctrl+Shift+S` | Save As (Custom Name + Windows Explorer) |
 | `Ctrl+W` | Close Current Tab |
-| `Ctrl+F` | Find & Replace Bar |
+| `Ctrl+F` | Find & Replace Bar with Live Match Counter |
 | `Ctrl+Z` / `Ctrl+Y` | Undo / Redo |
 | `Alt+F` | Format Document / JSON |
 
 ---
 
-## 🚀 Building & Installing
+## 🚀 Windows Context Menu Setup
+
+To add **"Edit with NEXOUYA PAD"** to your Windows right-click menu:
+1. Double-click `register-context-menu.reg` included in the root folder.
+2. Click **Yes** when prompted by Windows Registry Editor.
+
+---
+
+## 💻 Building & Installing
 
 ### Automated GitHub Releases
 Download pre-built installers directly from the [NEXOUYA PAD Releases Page](https://github.com/nexouya/nexouya-pad/releases).

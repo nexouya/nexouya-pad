@@ -1,0 +1,30 @@
+REGEDIT4
+
+; ==============================================================================
+; NEXOUYA PAD - Windows Context Menu Integration (Windows 10 / 11)
+; Adds "Edit with NEXOUYA PAD" to right-click context menu for all files and desktop background
+; ==============================================================================
+
+; 1. Context Menu for Any File (*):
+[HKEY_CURRENT_USER\Software\Classes\*\shell\NEXOUYAPad]
+@="Edit with NEXOUYA PAD"
+"Icon"="\"%LOCALAPPDATA%\\Programs\\NEXOUYA PAD\\NEXOUYA PAD.exe\",0"
+
+[HKEY_CURRENT_USER\Software\Classes\*\shell\NEXOUYAPad\command]
+@="\"%LOCALAPPDATA%\\Programs\\NEXOUYA PAD\\NEXOUYA PAD.exe\" \"%1\""
+
+; 2. Context Menu for Windows 11 Modern Extended Menu:
+[HKEY_CURRENT_USER\Software\Classes\SystemFileAssociations\text\shell\NEXOUYAPad]
+@="Edit with NEXOUYA PAD"
+"Icon"="\"%LOCALAPPDATA%\\Programs\\NEXOUYA PAD\\NEXOUYA PAD.exe\",0"
+
+[HKEY_CURRENT_USER\Software\Classes\SystemFileAssociations\text\shell\NEXOUYAPad\command]
+@="\"%LOCALAPPDATA%\\Programs\\NEXOUYA PAD\\NEXOUYA PAD.exe\" \"%1\""
+
+; 3. Desktop Background (Create / Open NEXOUYA PAD):
+[HKEY_CURRENT_USER\Software\Classes\Directory\Background\shell\NEXOUYAPad]
+@="Open with NEXOUYA PAD"
+"Icon"="\"%LOCALAPPDATA%\\Programs\\NEXOUYA PAD\\NEXOUYA PAD.exe\",0"
+
+[HKEY_CURRENT_USER\Software\Classes\Directory\Background\shell\NEXOUYAPad\command]
+@="\"%LOCALAPPDATA%\\Programs\\NEXOUYA PAD\\NEXOUYA PAD.exe\""
