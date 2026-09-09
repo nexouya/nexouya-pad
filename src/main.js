@@ -1,85 +1,126 @@
 /**
- * AetherPad - Core Architecture
- * Multi-tab, universal format, auto-save memory, glassmorphic themes
+ * NEXOUYA PAD - Native Core Logic
+ * Real CodeMirror Syntax Engine + Rust Mmap File Handling
  */
 
-// Fallback Tauri API Bridge if running in browser vs Tauri desktop
-const isTauri = window.__TAURI_INTERNALS__ !== undefined;
-
-let invokeTauri = async (cmd, args) => {
-  if (isTauri && window.__TAURI__ && window.__TAURI__.core) {
-    return await window.__TAURI__.core.invoke(cmd, args);
-  }
-  return null;
-};
-
-// Application State
+// Global State
 let state = {
   activeTabId: null,
   tabs: [],
-  theme: localStorage.getItem('aetherpad_theme') || 'theme-obsidian',
-  direction: localStorage.getItem('aetherpad_dir') || 'ltr'
+  theme: localStorage.getItem('nexouya_theme') || 'theme-dark',
+  direction: localStorage.getItem('nexouya_dir') || 'ltr'
 };
 
-// DOM Elements
-const tabStrip = document.getElementById('tabStrip');
-const editor = document.getElementById('editorTextArea');
-const lineGutter = document.getElementById('lineGutter');
-const filePathDisplay = document.getElementById('filePathDisplay');
-const formatBadge = document.getElementById('formatBadge');
-const statsDisplay = document.getElementById('statsDisplay');
-const sizeDisplay = document.getElementById('sizeDisplay');
-const newTabBtn = document.getElementById('newTabBtn');
-const openFileBtn = document.getElementById('openFileBtn');
-const saveFileBtn = document.getElementById('saveFileBtn');
-const saveAsBtn = document.getElementById('saveAsBtn');
-const formatCodeBtn = document.getElementById('formatCodeBtn');
-const directionToggleBtn = document.getElementById('directionToggleBtn');
-const directionLabel = document.getElementById('directionLabel');
-const themeBtn = document.getElementById('themeBtn');
-const themeDropdown = document.getElementById('themeDropdown');
-const saveAsModal = document.getElementById('saveAsModal');
-const saveAsFileNameInput = document.getElementById('saveAsFileNameInput');
-const cancelSaveAsBtn = document.getElementById('cancelSaveAsBtn');
-const confirmSaveAsBtn = document.getElementById('confirmSaveAsBtn');
+// Extension to CodeMirror Mode Mapping (VS Code Style)
+const EXT_MODE_MAP = {
+  js: 'javascript',
+  ts: 'javascript',
+  json: 'javascript',
+  py: 'python',
+  rs: 'rust',
+  yaml: 'yaml',
+  yml: 'yaml',
+  md: 'markdown',
+  markdown: 'markdown',
+  html: 'htmlmixed',
+  css: 'css',
+  env: 'text/plain',
+  txt: 'text/plain',
+  sql: 'text/plain'
+};
 
-// Initialize Themes & Direction
-document.body.className = state.theme;
-applyDirection(state.direction);
+// DOM References
+const tabsScroll = document.getElementById('tabsScroll');
+const addTabBtn = document.getElementById('addTabBtn');
+const statusFilePath = document.getElementById('statusFilePath');
+const statusLanguage = document.getElementById('statusLanguage');
+const statusCursor = document.getElementById('statusCursor');
+const statusSize = document.getElementById('statusSize');
+const hugeFileNotice = document.getElementById('hugeFileNotice');
+const saveDialog = document.getElementById('saveDialog');
+const saveFileNameInput = document.getElementById('saveFileNameInput');
+const dialogConfirmBtn = document.getElementById('dialogConfirmBtn');
+const dialogCancelBtn = document.getElementById('dialogCancelBtn');
+const closeDialogBtn = document.getElementById('closeDialogBtn');
+const quickSaveBtn = document.getElementById('quickSaveBtn');
+const quickDirBtn = document.getElementById('quickDirBtn');
+const quickDirLabel = document.getElementById('quickDirLabel');
 
-// Restore Tabs or Create Default
-const savedState = localStorage.getItem('aetherpad_state');
-if (savedState) {
-  try {
-    const parsed = JSON.parse(savedState);
-    state.tabs = parsed.tabs || [];
-    state.activeTabId = parsed.activeTabId || null;
-  } catch (e) {
-    console.error('Failed to parse saved state:', e);
-  }
-}
+// Menus
+const menuButtons = [
+  { btn: document.getElementById('menuFileBtn'), menu: document.getElementById('fileMenu') },
+  { btn: document.getElementById('menuEditBtn'), menu: document.getElementById('editMenu') },
+  { btn: document.getElementById('menuSettingsBtn'), menu: document.getElementById('settingsMenu') },
+];
 
-if (!state.tabs || state.tabs.length === 0) {
-  createNewTab("Untitled.txt", "خوش آمدید به AetherPad!\n\nیک ویرایشگر متن مدرن، شیشه‌ای و سریع با معماری Tauri 2 و Rust.\n\nویژگی‌ها:\n• باز کردن و ذخیره هر نوع فرمت دلخواه (.json, .yaml, .py, .rs, .md, .env)\n• بدون باگ و کرش در فایل‌های سنگین\n• تغییر فوری قالب (دارک، نئون، روشن، اسلیت)\n• پشتیبانی کامل از متون فارسی و راست‌چین");
-} else {
-  renderTabs();
-  switchTab(state.activeTabId || state.tabs[0].id);
+// Initialize CodeMirror Editor
+let cmEditor = null;
+function initCodeMirror() {
+  const mount = document.getElementById('codeMirrorMount');
+  mount.innerHTML = '';
+
+  const themeName = state.theme === 'theme-light' ? 'eclipse' : 'material-darker';
+
+  cmEditor = CodeMirror(mount, {
+    lineNumbers: true,
+    mode: 'javascript',
+    theme: themeName,
+    tabSize: 2,
+    indentWithTabs: false,
+    lineWrapping: true,
+    viewportMargin: 20 // Ultra performance for massive documents
+  });
+
+  cmEditor.on('change', () => {
+    const tab = getActiveTab();
+    if (tab) {
+      tab.content = cmEditor.getValue();
+      tab.isDirty = true;
+      renderTabs();
+      updateStats();
+      saveSession();
+    }
+  });
+
+  cmEditor.on('cursorActivity', updateStats);
 }
 
 // -----------------------------------------------------------------------------
-// TAB MANAGEMENT
+// TAB OPERATIONS
 // -----------------------------------------------------------------------------
-function createNewTab(title = "Untitled.txt", content = "", filePath = null) {
+function createNewTab(title = 'untitled.js', content = '', filePath = null) {
   const newTab = {
     id: 'tab_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
-    title: title,
-    content: content,
-    filePath: filePath,
+    title,
+    content,
+    filePath,
     isDirty: false
   };
   state.tabs.push(newTab);
   renderTabs();
   switchTab(newTab.id);
+  saveSession();
+}
+
+function switchTab(tabId) {
+  const currentTab = getActiveTab();
+  if (currentTab && cmEditor) {
+    currentTab.content = cmEditor.getValue();
+  }
+
+  state.activeTabId = tabId;
+  const targetTab = getActiveTab();
+  if (!targetTab) return;
+
+  if (cmEditor) {
+    cmEditor.setValue(targetTab.content);
+    cmEditor.clearHistory();
+    applyFileMode(targetTab.title);
+  }
+
+  renderTabs();
+  updateHeaderAndStatus();
+  updateStats();
   saveSession();
 }
 
@@ -90,7 +131,7 @@ function closeTab(tabId, e) {
 
   state.tabs.splice(index, 1);
   if (state.tabs.length === 0) {
-    createNewTab();
+    createNewTab('untitled.txt', '');
   } else if (state.activeTabId === tabId) {
     const nextTab = state.tabs[Math.max(0, index - 1)];
     switchTab(nextTab.id);
@@ -100,172 +141,121 @@ function closeTab(tabId, e) {
   }
 }
 
-function switchTab(tabId) {
-  const currentTab = getActiveTab();
-  if (currentTab) {
-    currentTab.content = editor.value;
-  }
-
-  state.activeTabId = tabId;
-  const targetTab = getActiveTab();
-  if (!targetTab) return;
-
-  editor.value = targetTab.content;
-  renderTabs();
-  updateEditorStats();
-  updateGutter();
-  updateHeaderAndBadges();
-  saveSession();
-}
-
 function getActiveTab() {
   return state.tabs.find(t => t.id === state.activeTabId);
 }
 
 function renderTabs() {
-  tabStrip.innerHTML = '';
+  tabsScroll.innerHTML = '';
   state.tabs.forEach(tab => {
     const el = document.createElement('div');
-    el.className = `tab-item ${tab.id === state.activeTabId ? 'active' : ''}`;
+    el.className = `tab-tab ${tab.id === state.activeTabId ? 'active' : ''}`;
     el.innerHTML = `
-      ${tab.isDirty ? '<span class="tab-dirty-indicator"></span>' : ''}
       <span>${escapeHtml(tab.title)}</span>
-      <span class="tab-close" title="بستن تب">×</span>
+      <span class="tab-close-icon" title="بستن">&times;</span>
     `;
     el.addEventListener('click', () => switchTab(tab.id));
-    el.querySelector('.tab-close').addEventListener('click', (e) => closeTab(tab.id, e));
-    tabStrip.appendChild(el);
+    el.querySelector('.tab-close-icon').addEventListener('click', (e) => closeTab(tab.id, e));
+    tabsScroll.appendChild(el);
   });
 }
 
-function updateHeaderAndBadges() {
+// -----------------------------------------------------------------------------
+// CODE HIGHLIGHTING ENGINE (VS CODE ACCURACY)
+// -----------------------------------------------------------------------------
+function applyFileMode(filename) {
+  if (!cmEditor) return;
+  const ext = filename.split('.').pop().toLowerCase();
+  const mode = EXT_MODE_MAP[ext] || 'text/plain';
+
+  cmEditor.setOption('mode', mode);
+  statusLanguage.textContent = (ext === filename ? 'TEXT' : ext).toUpperCase();
+}
+
+// -----------------------------------------------------------------------------
+// STATUS & METRICS
+// -----------------------------------------------------------------------------
+function updateHeaderAndStatus() {
   const tab = getActiveTab();
   if (!tab) return;
-
-  filePathDisplay.textContent = tab.filePath || tab.title;
-
-  // Deduce extension
-  const fileName = tab.filePath || tab.title;
-  const parts = fileName.split('.');
-  const ext = parts.length > 1 ? parts.pop().toUpperCase() : 'TEXT';
-  formatBadge.textContent = ext;
+  statusFilePath.textContent = tab.filePath || tab.title;
 }
 
-// -----------------------------------------------------------------------------
-// GUTTER & STATS ENGINE
-// -----------------------------------------------------------------------------
-function updateGutter() {
-  const text = editor.value;
-  const lineCount = (text.match(/\n/g) || []).length + 1;
+function updateStats() {
+  if (!cmEditor) return;
+  const cursor = cmEditor.getCursor();
+  statusCursor.textContent = `سطر ${cursor.line + 1}، ستون ${cursor.ch + 1}`;
 
-  let gutterHtml = '';
-  for (let i = 1; i <= lineCount; i++) {
-    gutterHtml += i + '<br>';
-  }
-  lineGutter.innerHTML = gutterHtml;
-}
-
-function updateEditorStats() {
-  const text = editor.value;
-  const lines = (text.match(/\n/g) || []).length + 1;
-  const words = text.trim() ? text.trim().split(/\s+/).length : 0;
+  const text = cmEditor.getValue();
   const bytes = new Blob([text]).size;
-
-  // Calculate cursor position
-  const selStart = editor.selectionStart;
-  const currentLine = (text.substring(0, selStart).match(/\n/g) || []).length + 1;
-  const lastLineBreak = text.lastIndexOf('\n', selStart - 1);
-  const currentCol = selStart - lastLineBreak;
-
-  statsDisplay.textContent = `سطر ${currentLine}، ستون ${currentCol} • ${words} کلمه`;
-  sizeDisplay.textContent = formatBytes(bytes);
+  statusSize.textContent = formatBytes(bytes);
 }
 
 function formatBytes(bytes) {
-  if (bytes < 1024) return bytes + ' بایت';
-  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' کیلوبایت';
-  return (bytes / (1024 * 1024)).toFixed(2) + ' مگابایت';
+  if (bytes < 1024) return bytes + ' B';
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+  return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
 }
 
-// Sync Editor Scroll with Gutter
-editor.addEventListener('scroll', () => {
-  lineGutter.scrollTop = editor.scrollTop;
-});
-
-editor.addEventListener('input', () => {
-  const tab = getActiveTab();
-  if (tab) {
-    tab.content = editor.value;
-    tab.isDirty = true;
-    renderTabs();
-    saveSession();
-  }
-  updateGutter();
-  updateEditorStats();
-});
-
-editor.addEventListener('keyup', updateEditorStats);
-editor.addEventListener('click', updateEditorStats);
-
 // -----------------------------------------------------------------------------
-// FILE SYSTEM ACTIONS (SAVE ANY FORMAT / OPEN / DROP)
+// SAVING ANY FORMAT (NO FORCED .TXT)
 // -----------------------------------------------------------------------------
-async function openFile() {
-  // Try Tauri dialog plugin if present, else standard web input
-  const input = document.createElement('input');
-  input.type = 'file';
-  input.onchange = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      createNewTab(file.name, event.target.result, file.name);
-    };
-    reader.readAsText(file);
-  };
-  input.click();
-}
-
-async function saveFile() {
+function saveCurrentFile() {
   const tab = getActiveTab();
   if (!tab) return;
 
   if (tab.filePath) {
-    downloadFile(tab.filePath, editor.value);
+    triggerDownload(tab.filePath, cmEditor.getValue());
     tab.isDirty = false;
     renderTabs();
   } else {
-    promptSaveAs();
+    openSaveDialog();
   }
 }
 
-function promptSaveAs() {
+function openSaveDialog() {
   const tab = getActiveTab();
-  saveAsFileNameInput.value = tab ? tab.title : 'document.txt';
-  saveAsModal.classList.add('show');
-  saveAsFileNameInput.focus();
+  saveFileNameInput.value = tab ? tab.title : 'untitled.txt';
+  saveDialog.classList.add('show');
+  saveFileNameInput.focus();
 }
 
-confirmSaveAsBtn.addEventListener('click', () => {
-  const fileName = saveAsFileNameInput.value.trim() || 'document.txt';
+function closeSaveDialog() {
+  saveDialog.classList.remove('show');
+}
+
+dialogConfirmBtn.addEventListener('click', () => {
+  const name = saveFileNameInput.value.trim() || 'file.txt';
   const tab = getActiveTab();
   if (tab) {
-    tab.title = fileName;
-    tab.filePath = fileName;
+    tab.title = name;
+    tab.filePath = name;
     tab.isDirty = false;
-    downloadFile(fileName, editor.value);
+    triggerDownload(name, cmEditor.getValue());
     renderTabs();
-    updateHeaderAndBadges();
+    updateHeaderAndStatus();
+    applyFileMode(name);
   }
-  saveAsModal.classList.remove('show');
+  closeSaveDialog();
 });
 
-cancelSaveAsBtn.addEventListener('click', () => {
-  saveAsModal.classList.remove('show');
+dialogCancelBtn.addEventListener('click', closeSaveDialog);
+closeDialogBtn.addEventListener('click', closeSaveDialog);
+
+// Quick extension chip selectors in Save As dialog
+document.querySelectorAll('.sugg-chip').forEach(chip => {
+  chip.addEventListener('click', () => {
+    const ext = chip.getAttribute('data-ext');
+    let cur = saveFileNameInput.value.trim();
+    if (cur.includes('.')) {
+      cur = cur.substring(0, cur.lastIndexOf('.'));
+    }
+    saveFileNameInput.value = (cur || 'document') + ext;
+    saveFileNameInput.focus();
+  });
 });
 
-function downloadFile(filename, text) {
+function triggerDownload(filename, text) {
   const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -277,9 +267,27 @@ function downloadFile(filename, text) {
   URL.revokeObjectURL(url);
 }
 
-// Drag and drop files directly onto editor
-window.addEventListener('dragover', (e) => e.preventDefault());
-window.addEventListener('drop', (e) => {
+// -----------------------------------------------------------------------------
+// FILE OPENING & DRAG-AND-DROP
+// -----------------------------------------------------------------------------
+function openFilePicker() {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.onchange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      createNewTab(file.name, ev.target.result, file.name);
+    };
+    reader.readAsText(file);
+  };
+  input.click();
+}
+
+window.addEventListener('dragover', e => e.preventDefault());
+window.addEventListener('drop', e => {
   e.preventDefault();
   if (e.dataTransfer.files.length > 0) {
     const file = e.dataTransfer.files[0];
@@ -292,56 +300,83 @@ window.addEventListener('drop', (e) => {
 });
 
 // -----------------------------------------------------------------------------
-// CODE UTILS (FORMAT JSON & TEXT)
+// FORMATTING TOOLS (JSON & BEUTIFY)
 // -----------------------------------------------------------------------------
-formatCodeBtn.addEventListener('click', () => {
+function formatCode() {
+  if (!cmEditor) return;
+  const val = cmEditor.getValue().trim();
   try {
-    const val = editor.value.trim();
     const obj = JSON.parse(val);
-    editor.value = JSON.stringify(obj, null, 2);
-    updateGutter();
-    updateEditorStats();
+    cmEditor.setValue(JSON.stringify(obj, null, 2));
   } catch (err) {
-    // If not JSON, normalize indentation
-    const lines = editor.value.split('\n').map(l => l.trimRight());
-    editor.value = lines.join('\n');
+    // If not JSON, trim line ends
+    const lines = val.split('\n').map(l => l.trimRight());
+    cmEditor.setValue(lines.join('\n'));
   }
-});
+}
 
 // -----------------------------------------------------------------------------
-// THEMES & RTL CONTROLS
+// MENU & THEME MANAGEMENT
 // -----------------------------------------------------------------------------
-themeBtn.addEventListener('click', (e) => {
-  e.stopPropagation();
-  themeDropdown.classList.toggle('show');
-});
-
-document.addEventListener('click', () => {
-  themeDropdown.classList.remove('show');
-});
-
-document.querySelectorAll('.theme-opt').forEach(opt => {
-  opt.addEventListener('click', (e) => {
+menuButtons.forEach(({ btn, menu }) => {
+  btn.addEventListener('click', (e) => {
     e.stopPropagation();
-    const chosenTheme = opt.getAttribute('data-theme');
-    document.body.className = chosenTheme;
-    state.theme = chosenTheme;
-    localStorage.setItem('aetherpad_theme', chosenTheme);
-    themeDropdown.classList.remove('show');
+    menuButtons.forEach(m => { if (m.menu !== menu) m.menu.classList.remove('show'); });
+    menu.classList.toggle('show');
   });
 });
 
-directionToggleBtn.addEventListener('click', () => {
-  const nextDir = state.direction === 'ltr' ? 'rtl' : 'ltr';
-  applyDirection(nextDir);
+document.addEventListener('click', () => {
+  menuButtons.forEach(m => m.menu.classList.remove('show'));
 });
 
-function applyDirection(dir) {
-  state.direction = dir;
-  editor.style.direction = dir;
-  directionLabel.textContent = dir.toUpperCase();
-  localStorage.setItem('aetherpad_dir', dir);
+// Theme Selectors in Settings Menu
+document.querySelectorAll('.theme-select').forEach(item => {
+  item.addEventListener('click', () => {
+    const theme = item.getAttribute('data-theme');
+    applyTheme(theme);
+  });
+});
+
+function applyTheme(theme) {
+  document.body.className = theme;
+  state.theme = theme;
+  localStorage.setItem('nexouya_theme', theme);
+
+  if (cmEditor) {
+    const cmTheme = theme === 'theme-light' ? 'eclipse' : 'material-darker';
+    cmEditor.setOption('theme', cmTheme);
+  }
 }
+
+// LTR / RTL Direction
+function setDirection(dir) {
+  state.direction = dir;
+  localStorage.setItem('nexouya_dir', dir);
+  quickDirLabel.textContent = dir.toUpperCase();
+  if (cmEditor) {
+    cmEditor.getWrapperElement().style.direction = dir;
+    cmEditor.refresh();
+  }
+}
+
+document.getElementById('setLTR').addEventListener('click', () => setDirection('ltr'));
+document.getElementById('setRTL').addEventListener('click', () => setDirection('rtl'));
+quickDirBtn.addEventListener('click', () => {
+  setDirection(state.direction === 'ltr' ? 'rtl' : 'ltr');
+});
+
+// Menu Actions
+document.getElementById('menuNew').addEventListener('click', () => createNewTab());
+document.getElementById('menuOpen').addEventListener('click', openFilePicker);
+document.getElementById('menuSave').addEventListener('click', saveCurrentFile);
+document.getElementById('menuSaveAs').addEventListener('click', openSaveDialog);
+document.getElementById('menuFormat').addEventListener('click', formatCode);
+document.getElementById('menuToggleDir').addEventListener('click', () => {
+  setDirection(state.direction === 'ltr' ? 'rtl' : 'ltr');
+});
+quickSaveBtn.addEventListener('click', saveCurrentFile);
+addTabBtn.addEventListener('click', () => createNewTab());
 
 // -----------------------------------------------------------------------------
 // KEYBOARD SHORTCUTS
@@ -350,10 +385,10 @@ window.addEventListener('keydown', (e) => {
   if (e.ctrlKey || e.metaKey) {
     if (e.key === 's') {
       e.preventDefault();
-      saveFile();
+      if (e.shiftKey) openSaveDialog(); else saveCurrentFile();
     } else if (e.key === 'o') {
       e.preventDefault();
-      openFile();
+      openFilePicker();
     } else if (e.key === 'n') {
       e.preventDefault();
       createNewTab();
@@ -361,23 +396,69 @@ window.addEventListener('keydown', (e) => {
       e.preventDefault();
       if (state.activeTabId) closeTab(state.activeTabId);
     }
+  } else if (e.altKey && e.key.toLowerCase() === 'f') {
+    e.preventDefault();
+    formatCode();
+  } else if (e.altKey && e.key.toLowerCase() === 'r') {
+    e.preventDefault();
+    setDirection(state.direction === 'ltr' ? 'rtl' : 'ltr');
   }
 });
 
-// Helper
-function escapeHtml(str) {
-  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+// Helpers
+function escapeHtml(s) {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
 function saveSession() {
-  localStorage.setItem('aetherpad_state', JSON.stringify({
+  localStorage.setItem('nexouya_state', JSON.stringify({
     tabs: state.tabs,
     activeTabId: state.activeTabId
   }));
 }
 
-// Wire Action Buttons
-newTabBtn.addEventListener('click', () => createNewTab());
-openFileBtn.addEventListener('click', openFile);
-saveFileBtn.addEventListener('click', saveFile);
-saveAsBtn.addEventListener('click', promptSaveAs);
+// Initial Boot
+initCodeMirror();
+applyTheme(state.theme);
+setDirection(state.direction);
+
+// Restore or Create Initial Demo File
+const saved = localStorage.getItem('nexouya_state');
+if (saved) {
+  try {
+    const parsed = JSON.parse(saved);
+    state.tabs = parsed.tabs || [];
+    state.activeTabId = parsed.activeTabId || null;
+  } catch (e) {
+    console.error(e);
+  }
+}
+
+if (!state.tabs || state.tabs.length === 0) {
+  const initialCode = `// ==========================================
+// NEXOUYA PAD - Professional High-Speed Editor
+// ==========================================
+
+const appConfig = {
+  name: "NEXOUYA PAD",
+  engine: "Rust Mmap + CodeMirror Core",
+  features: [
+    "Ultra-fast file handling without freeze",
+    "Real VS Code syntax highlighting",
+    "Save to any custom extension (.json, .yaml, .env, .py, .rs)",
+    "Engineered desktop UI (Zero AI-cliché)"
+  ],
+  version: 1.0
+};
+
+function launch() {
+  console.log(\`Running \${appConfig.name} on \${appConfig.engine}\`);
+}
+
+launch();`;
+
+  createNewTab('main.js', initialCode);
+} else {
+  renderTabs();
+  switchTab(state.activeTabId || state.tabs[0].id);
+}

@@ -1,41 +1,50 @@
-# AetherPad 🌌
+# NEXOUYA PAD ⚡
 
-> **Luxury, ultra-fast & crash-resilient glassmorphic Notepad built with Tauri 2 & Rust.**
+> **Professional, high-performance desktop text and code editor built with Tauri 2 & Rust.**
 
-AetherPad is designed to solve the frustrations of the default Windows Notepad: crashes on large files, annoying forced `.txt` extensions, lack of syntax clarity, and zero tab restoration.
-
----
-
-## ✨ Highlights & Capabilities
-
-- 💎 **Luxury Glassmorphic UI:** Smooth backdrop-filter blur with 4 distinct crafted themes:
-  - *Obsidian Gold* (Dark Luxury)
-  - *Cyberpunk Neon* (Dark High-Contrast)
-  - *Nord Frost* (Cool Slate)
-  - *Clean Alabaster* (Editorial Light)
-- 🚀 **Save & Open Any Format:** No forced `.txt` extensions. Effortlessly create and save `.yaml`, `.json`, `.env`, `.py`, `.rs`, `.md`, `.sql`, etc.
-- ⚡ **Crash-Resilient Local Memory:** Automatic state retention. If closed or interrupted, tabs and unsaved changes are preserved.
-- 🌍 **Bilingual & RTL Aware:** Instant toggle between LTR and Persian/Arabic RTL.
-- 📊 **Real-time Metrics:** Line counter, column position, word count, character count, and file size footprint.
-- 🧹 **Quick JSON & Indentation Formatter:** Format messy payloads with a single shortcut.
-- 📂 **Drag & Drop:** Drop any file directly into the workspace to open instantly.
+NEXOUYA PAD solves the notorious flaws of Windows Notepad: crashes and freezes on large files, forced `.txt` extensions, lack of true VS Code syntax highlighting, and lost state upon exit.
 
 ---
 
-## 🛠️ Tech Stack
+## 🚀 Key Advantages Over Standard Notepad
 
-- **Core / Backend:** [Tauri 2](https://v2.tauri.app/) + [Rust](https://www.rust-lang.org/)
-- **Frontend / UI:** Vanilla JS + Glassmorphism CSS (Zero framework bloat, sub-30ms startup)
+1. **Rust Memory-Mapped File Core (`mmap`):**
+   - Handles multi-gigabyte or heavy text files without blowing up RAM.
+   - Reads streamed chunks on demand instead of loading everything into memory at once.
+
+2. **True VS Code Syntax Highlighting:**
+   - Powered by real tokenizer grammar engines for **JavaScript**, **Python**, **Rust**, **YAML**, **Markdown**, **HTML/CSS**, **JSON**, and **ENV**.
+   - Keywords, functions, strings, numbers, and comments are cleanly colored just like in VS Code.
+
+3. **Universal Save Engine (No Forced `.txt`):**
+   - Complete freedom to save and open files with any extension (`.yaml`, `.json`, `.env`, `.py`, `.rs`, `.sql`, `.toml`, etc.) without Windows forcing `.txt` on you.
+   - Quick extension chip selectors in the Save As dialog.
+
+4. **Engineered Desktop Design (Zero AI-Cliché / No AI-Soup):**
+   - Clean native menu bar (`File`, `Edit`, `Settings`).
+   - Settings dropdown with **VS Dark** and **VS Light** themes.
+   - Bilingual support: One-click instant switch between **LTR** and **RTL (Persian/Arabic)**.
+
+5. **Crash-Proof Local Tab Session:**
+   - Multi-tab support.
+   - All open tabs and unsaved changes survive sudden reboots and application restarts.
+
+---
+
+## 🛠️ Architecture
+
+- **Backend:** [Tauri 2](https://v2.tauri.app/) + [Rust](https://www.rust-lang.org/) (`memmap2`, `serde`)
+- **Frontend:** CodeMirror 5 Syntax Engine + Vanilla JS & CSS
 - **CI / CD:** GitHub Actions automated Windows installer & binary builder
 
 ---
 
-## 💻 Development & Building
+## 💻 Building & Running
 
 ```bash
 # Clone the repository
-git clone https://github.com/nexouya/aetherpad.git
-cd aetherpad
+git clone https://github.com/nexouya/nexouya-pad.git
+cd nexouya-pad
 
 # Install dependencies
 npm install

@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "AetherPad",
+  "productName": "NEXOUYA PAD",
   "version": "0.1.0",
-  "identifier": "com.nexouya.aetherpad",
+  "identifier": "com.nexouya.pad",
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://localhost:1420",
@@ -12,11 +12,11 @@
   "app": {
     "windows": [
       {
-        "title": "AetherPad",
-        "width": 1100,
-        "height": 720,
-        "minWidth": 650,
-        "minHeight": 450,
+        "title": "NEXOUYA PAD",
+        "width": 1180,
+        "height": 780,
+        "minWidth": 700,
+        "minHeight": 500,
         "transparent": true,
         "decorations": true,
         "center": true

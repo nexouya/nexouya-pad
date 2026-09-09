@@ -1,4 +1,4 @@
-name: Release Tauri App
+name: Release NEXOUYA PAD
 
 on:
   push:
@@ -43,8 +43,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tagName: v__VERSION__
-          releaseName: 'AetherPad v__VERSION__'
-          releaseBody: 'AetherPad release with luxury glassmorphism, multi-tab support and crash-proof memory.'
+          releaseName: 'NEXOUYA PAD v__VERSION__'
+          releaseBody: 'NEXOUYA PAD - Professional high-performance text and code editor with Rust mmap engine and VS Code syntax highlighting.'
           releaseDraft: false
           prerelease: false
           args: ${{ matrix.args }}
