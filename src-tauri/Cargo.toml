@@ -1,0 +1,18 @@
+[package]
+name = "aetherpad"
+version = "0.1.0"
+description = "AetherPad - Luxury glassmorphic notepad built with Tauri 2"
+authors = ["nexouya"]
+license = "MIT"
+repository = "https://github.com/nexouya/aetherpad"
+edition = "2021"
+
+[build-dependencies]
+tauri-build = { version = "2.0", features = [] }
+
+[dependencies]
+tauri = { version = "2.0", features = [] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+tauri-plugin-dialog = "2.0"
+tauri-plugin-fs = "2.0"

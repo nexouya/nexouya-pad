@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AetherPad</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Vazirmatn:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/src/style.css">
+</head>
+<body class="theme-obsidian">
+  <div id="app" class="app-shell">
+
+    <!-- Top Modern Glassmorphic Command Ribbon -->
+    <header class="top-nav">
+      <div class="brand-section">
+        <div class="brand-gem">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+            <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
+            <polyline points="2 17 12 22 22 17"></polyline>
+            <polyline points="2 12 12 17 22 12"></polyline>
+          </svg>
+        </div>
+        <span class="brand-title">AetherPad</span>
+      </div>
+
+      <!-- Tab Strip -->
+      <div class="tab-strip" id="tabStrip">
+        <!-- Tabs generated dynamically -->
+      </div>
+
+      <!-- Utility Actions -->
+      <div class="nav-actions">
+        <!-- New Tab -->
+        <button class="icon-btn" id="newTabBtn" title="سند جدید (Ctrl+N)">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="12" y1="5" x2="12" y2="19"></line>
+            <line x1="5" y1="12" x2="19" y2="12"></line>
+          </svg>
+        </button>
+
+        <!-- Open File -->
+        <button class="icon-btn" id="openFileBtn" title="باز کردن فایل بدون محدودیت فرمت (Ctrl+O)">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+          </svg>
+        </button>
+
+        <!-- Save -->
+        <button class="icon-btn" id="saveFileBtn" title="ذخیره فایل (Ctrl+S)">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+            <polyline points="17 21 17 13 7 13 7 21"></polyline>
+            <polyline points="7 3 7 8 15 8"></polyline>
+          </svg>
+        </button>
+
+        <!-- Save As Any Format -->
+        <button class="icon-btn" id="saveAsBtn" title="ذخیره با پسوند دلخواه (Save As...)">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+            <polyline points="14 2 14 8 20 8"></polyline>
+            <line x1="12" y1="18" x2="12" y2="12"></line>
+            <line x1="9" y1="15" x2="15" y2="15"></line>
+          </svg>
+        </button>
+
+        <div class="divider-v"></div>
+
+        <!-- RTL / LTR Persian Toggle -->
+        <button class="text-pill-btn" id="directionToggleBtn" title="تغییر جهت چپ‌چین / راست‌چین">
+          <span id="directionLabel">LTR</span>
+        </button>
+
+        <!-- Format JSON / Text Tool -->
+        <button class="icon-btn" id="formatCodeBtn" title="فرمت و زیباسازی خودکار کد/JSON">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="16 18 22 12 16 6"></polyline>
+            <polyline points="8 6 2 12 8 18"></polyline>
+          </svg>
+        </button>
+
+        <!-- Theme Picker Dropdown -->
+        <div class="theme-menu-container">
+          <button class="icon-btn" id="themeBtn" title="پوسته و تنظیمات ظاهر">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="5"></circle>
+              <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"></path>
+            </svg>
+          </button>
+          <div class="theme-dropdown" id="themeDropdown">
+            <div class="theme-opt" data-theme="theme-obsidian">
+              <span class="color-dot obsidian"></span> Obsidian Gold (Dark Luxury)
+            </div>
+            <div class="theme-opt" data-theme="theme-cyberpunk">
+              <span class="color-dot cyberpunk"></span> Cyberpunk Neon (Dark Vibrant)
+            </div>
+            <div class="theme-opt" data-theme="theme-nord">
+              <span class="color-dot nord"></span> Nord Frost (Cool Slate)
+            </div>
+            <div class="theme-opt" data-theme="theme-paper">
+              <span class="color-dot paper"></span> Clean Alabaster (Pure Light)
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </header>
+
+    <!-- Main Workspace with Line Numbers & Editor -->
+    <main class="editor-workspace">
+      <div class="line-gutter" id="lineGutter">1</div>
+      <div class="editor-pane">
+        <textarea
+          id="editorTextArea"
+          class="code-textarea"
+          spellcheck="false"
+          autocomplete="off"
+          autocorrect="off"
+          autocapitalize="off"
+          placeholder="شروع به تایپ کنید یا فایلی را اینجا بکشید و رها کنید (Drop file here)..."
+        ></textarea>
+      </div>
+    </main>
+
+    <!-- Glassmorphic Status Bar -->
+    <footer class="status-bar">
+      <div class="status-group">
+        <span class="status-item" id="filePathDisplay">سند بدون عنوان</span>
+        <span class="status-badge" id="formatBadge">TEXT</span>
+      </div>
+
+      <div class="status-group">
+        <span class="status-item" id="statsDisplay">سطر ۱، ستون ۱ • ۰ کلمه</span>
+        <span class="status-item" id="sizeDisplay">۰ بایت</span>
+        <span class="status-item" id="encodingDisplay">UTF-8</span>
+      </div>
+    </footer>
+
+    <!-- Custom Save As Modal -->
+    <div class="modal-overlay" id="saveAsModal">
+      <div class="modal-card">
+        <h3>ذخیره فایل با هر پسوندی</h3>
+        <p>نام فایل را به همراه پسوند دلخواه (مثلاً config.yaml, main.rs, data.json) بنویسید:</p>
+        <input type="text" id="saveAsFileNameInput" class="modal-input" placeholder="filename.any">
+        <div class="modal-actions">
+          <button class="modal-btn cancel" id="cancelSaveAsBtn">انصراف</button>
+          <button class="modal-btn confirm" id="confirmSaveAsBtn">ذخیره فایل</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
