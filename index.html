@@ -12,144 +12,237 @@
 <body class="theme-dark">
   <div id="app" class="app-root">
 
-    <!-- 1. Native-style Menu Bar -->
-    <header class="menu-bar">
-      <div class="menu-item-group">
-        <div class="app-brand">
-          <svg class="brand-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-            <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
-            <polyline points="2 17 12 22 22 17"></polyline>
-            <polyline points="2 12 12 17 22 12"></polyline>
+    <!-- 1. Top Window Bar & Native-style Menu -->
+    <header class="app-header">
+      <div class="header-left">
+        <!-- App Brand Logo Icon -->
+        <div class="brand-badge">
+          <svg class="brand-svg" width="16" height="16" viewBox="0 0 32 32" fill="none">
+            <rect width="32" height="32" rx="7" fill="#141724"/>
+            <path d="M7 23V9L15 23V9" stroke="#0098FF" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M17 23V9L25 23V9" stroke="#00E5FF" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
           </svg>
-          <span class="brand-text">NEXOUYA PAD</span>
+          <span class="brand-name">NEXOUYA PAD</span>
         </div>
 
-        <!-- File Menu -->
-        <div class="menu-dropdown-wrapper">
-          <button class="menu-btn" id="menuFileBtn">File</button>
-          <div class="dropdown-menu" id="fileMenu">
-            <div class="menu-action" id="menuNew"><span class="label">New File</span><span class="shortcut">Ctrl+N</span></div>
-            <div class="menu-action" id="menuOpen"><span class="label">Open File...</span><span class="shortcut">Ctrl+O</span></div>
-            <div class="menu-sep"></div>
-            <div class="menu-action" id="menuSave"><span class="label">Save</span><span class="shortcut">Ctrl+S</span></div>
-            <div class="menu-action" id="menuSaveAs"><span class="label">Save As...</span><span class="shortcut">Ctrl+Shift+S</span></div>
-            <div class="menu-sep"></div>
-            <div class="menu-action" id="menuCloseTab"><span class="label">Close Tab</span><span class="shortcut">Ctrl+W</span></div>
+        <!-- Desktop Menu Bar -->
+        <nav class="desktop-menu">
+          <!-- File Menu -->
+          <div class="menu-dropdown-wrapper">
+            <button class="menu-trigger" id="menuFileBtn">File</button>
+            <div class="dropdown-menu" id="fileMenu">
+              <div class="menu-item" id="menuNew">
+                <span class="item-label">New File</span>
+                <span class="item-shortcut">Ctrl+N</span>
+              </div>
+              <div class="menu-item" id="menuOpen">
+                <span class="item-label">Open File...</span>
+                <span class="item-shortcut">Ctrl+O</span>
+              </div>
+              <div class="menu-divider"></div>
+              <div class="menu-item" id="menuSave">
+                <span class="item-label">Save</span>
+                <span class="item-shortcut">Ctrl+S</span>
+              </div>
+              <div class="menu-item" id="menuSaveAs">
+                <span class="item-label">Save As...</span>
+                <span class="item-shortcut">Ctrl+Shift+S</span>
+              </div>
+              <div class="menu-divider"></div>
+              <div class="menu-item" id="menuCloseTab">
+                <span class="item-label">Close Tab</span>
+                <span class="item-shortcut">Ctrl+W</span>
+              </div>
+            </div>
           </div>
-        </div>
 
-        <!-- Edit Menu -->
-        <div class="menu-dropdown-wrapper">
-          <button class="menu-btn" id="menuEditBtn">Edit</button>
-          <div class="dropdown-menu" id="editMenu">
-            <div class="menu-action" id="menuUndo"><span class="label">Undo</span><span class="shortcut">Ctrl+Z</span></div>
-            <div class="menu-action" id="menuRedo"><span class="label">Redo</span><span class="shortcut">Ctrl+Y</span></div>
-            <div class="menu-sep"></div>
-            <div class="menu-action" id="menuFormat"><span class="label">Format Document / JSON</span><span class="shortcut">Alt+F</span></div>
-            <div class="menu-action" id="menuSelectAll"><span class="label">Select All</span><span class="shortcut">Ctrl+A</span></div>
+          <!-- Edit Menu -->
+          <div class="menu-dropdown-wrapper">
+            <button class="menu-trigger" id="menuEditBtn">Edit</button>
+            <div class="dropdown-menu" id="editMenu">
+              <div class="menu-item" id="menuUndo">
+                <span class="item-label">Undo</span>
+                <span class="item-shortcut">Ctrl+Z</span>
+              </div>
+              <div class="menu-item" id="menuRedo">
+                <span class="item-label">Redo</span>
+                <span class="item-shortcut">Ctrl+Y</span>
+              </div>
+              <div class="menu-divider"></div>
+              <div class="menu-item" id="menuFind">
+                <span class="item-label">Find & Replace</span>
+                <span class="item-shortcut">Ctrl+F</span>
+              </div>
+              <div class="menu-item" id="menuFormat">
+                <span class="item-label">Format Document / JSON</span>
+                <span class="item-shortcut">Alt+F</span>
+              </div>
+              <div class="menu-item" id="menuSelectAll">
+                <span class="item-label">Select All</span>
+                <span class="item-shortcut">Ctrl+A</span>
+              </div>
+            </div>
           </div>
-        </div>
 
-        <!-- View Menu -->
-        <div class="menu-dropdown-wrapper">
-          <button class="menu-btn" id="menuViewBtn">View</button>
-          <div class="dropdown-menu" id="viewMenu">
-            <div class="menu-action" id="menuToggleWrap"><span class="label">Toggle Word Wrap</span><span class="shortcut" id="wrapStatus">ON</span></div>
-            <div class="menu-action" id="menuToggleLines"><span class="label">Toggle Line Numbers</span><span class="shortcut" id="lineNumStatus">ON</span></div>
+          <!-- View Menu -->
+          <div class="menu-dropdown-wrapper">
+            <button class="menu-trigger" id="menuViewBtn">View</button>
+            <div class="dropdown-menu" id="viewMenu">
+              <div class="menu-item" id="menuToggleWrap">
+                <span class="item-label">Word Wrap</span>
+                <span class="item-status" id="wrapStatus">ON</span>
+              </div>
+              <div class="menu-item" id="menuToggleLines">
+                <span class="item-label">Line Numbers</span>
+                <span class="item-status" id="lineNumStatus">ON</span>
+              </div>
+              <div class="menu-divider"></div>
+              <div class="menu-item" id="menuToggleRTL">
+                <span class="item-label">Persian / RTL Mode</span>
+                <span class="item-status" id="rtlStatus">OFF</span>
+              </div>
+            </div>
           </div>
-        </div>
 
-        <!-- Settings Menu -->
-        <div class="menu-dropdown-wrapper">
-          <button class="menu-btn" id="menuSettingsBtn">Settings</button>
-          <div class="dropdown-menu" id="settingsMenu">
-            <div class="menu-section-title">Color Theme</div>
-            <div class="menu-action theme-select" data-theme="theme-dark"><span class="label">VS Dark (Default)</span></div>
-            <div class="menu-action theme-select" data-theme="theme-light"><span class="label">VS Light</span></div>
-            <div class="menu-action theme-select" data-theme="theme-high-contrast"><span class="label">Obsidian High Contrast</span></div>
-            <div class="menu-sep"></div>
-            <div class="menu-section-title">Tab Indentation</div>
-            <div class="menu-action indent-select" data-indent="2"><span class="label">Spaces: 2</span></div>
-            <div class="menu-action indent-select" data-indent="4"><span class="label">Spaces: 4</span></div>
+          <!-- Settings Menu -->
+          <div class="menu-dropdown-wrapper">
+            <button class="menu-trigger" id="menuSettingsBtn">Settings</button>
+            <div class="dropdown-menu" id="settingsMenu">
+              <div class="menu-header">THEME</div>
+              <div class="menu-item theme-opt" data-theme="theme-dark">
+                <span class="item-label">Dark Studio (Default)</span>
+              </div>
+              <div class="menu-item theme-opt" data-theme="theme-light">
+                <span class="item-label">Clean Paper (Light)</span>
+              </div>
+              <div class="menu-item theme-opt" data-theme="theme-obsidian">
+                <span class="item-label">Obsidian Deep (High Contrast)</span>
+              </div>
+              <div class="menu-divider"></div>
+              <div class="menu-header">INDENTATION</div>
+              <div class="menu-item indent-opt" data-indent="2">
+                <span class="item-label">2 Spaces</span>
+              </div>
+              <div class="menu-item indent-opt" data-indent="4">
+                <span class="item-label">4 Spaces</span>
+              </div>
+            </div>
           </div>
-        </div>
+        </nav>
       </div>
 
       <!-- Quick Action Toolbar -->
-      <div class="quick-tools">
-        <button class="tool-btn" id="quickNewBtn" title="New File (Ctrl+N)">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <div class="header-right">
+        <button class="tool-action-btn" id="quickNewBtn" title="New File (Ctrl+N)">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <line x1="12" y1="5" x2="12" y2="19"></line>
             <line x1="5" y1="12" x2="19" y2="12"></line>
           </svg>
         </button>
-        <button class="tool-btn" id="quickOpenBtn" title="Open File (Ctrl+O)">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <button class="tool-action-btn" id="quickOpenBtn" title="Open File (Ctrl+O)">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
           </svg>
         </button>
-        <button class="tool-btn" id="quickSaveBtn" title="Save Document (Ctrl+S)">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <button class="tool-action-btn" id="quickSaveBtn" title="Save Document (Ctrl+S)">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
             <polyline points="17 21 17 13 7 13 7 21"></polyline>
             <polyline points="7 3 7 8 15 8"></polyline>
           </svg>
         </button>
+        <button class="tool-action-btn" id="quickRTLBtn" title="Toggle RTL / Persian">
+          <span id="quickRTLLabel" style="font-size: 11px; font-weight: 700;">LTR</span>
+        </button>
       </div>
     </header>
 
-    <!-- 2. Tab Strip -->
-    <nav class="tabs-container">
-      <div class="tabs-scroll" id="tabsScroll"></div>
-      <button class="add-tab-btn" id="addTabBtn" title="New Tab (Ctrl+N)">+</button>
-    </nav>
+    <!-- 2. Tabs Strip -->
+    <section class="tab-bar-strip">
+      <div class="tabs-slider" id="tabsScroll"></div>
+      <button class="add-tab-action" id="addTabBtn" title="New Tab (Ctrl+N)">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="12" y1="5" x2="12" y2="19"></line>
+          <line x1="5" y1="12" x2="19" y2="12"></line>
+        </svg>
+      </button>
+    </section>
 
-    <!-- 3. Editor Workspace with CodeMirror (True VS Code Syntax Highlighting) -->
-    <main class="editor-stage">
+    <!-- Find and Replace Bar (Embedded, shown on Ctrl+F) -->
+    <div class="find-replace-bar" id="findBar">
+      <div class="find-inputs">
+        <input type="text" id="findInput" placeholder="Find..." class="find-field">
+        <input type="text" id="replaceInput" placeholder="Replace with..." class="find-field">
+      </div>
+      <div class="find-buttons">
+        <button class="find-btn" id="findNextBtn" title="Next match">Next</button>
+        <button class="find-btn" id="replaceBtn" title="Replace current">Replace</button>
+        <button class="find-btn" id="replaceAllBtn" title="Replace all">All</button>
+        <button class="find-close-btn" id="findCloseBtn" title="Close (Esc)">&times;</button>
+      </div>
+    </div>
+
+    <!-- 3. Primary Editor Stage -->
+    <main class="editor-workspace">
       <div id="codeMirrorMount"></div>
     </main>
 
-    <!-- 4. Status Bar -->
+    <!-- 4. Refined Premium Status Bar -->
     <footer class="app-status-bar">
-      <div class="status-left">
-        <span class="status-cell" id="statusFilePath">untitled.js</span>
-        <span class="status-cell badge" id="statusLanguage">JAVASCRIPT</span>
-        <span class="status-cell" id="hugeFileNotice" style="display:none; color: #ffbb00;">⚡ Mmap High-Performance Stream</span>
+      <!-- Left side: File Name & Language -->
+      <div class="status-segment left">
+        <div class="status-pill file-name" id="statusFilePath" title="Current file">untitled.js</div>
+        <div class="status-badge" id="statusLanguage">JAVASCRIPT</div>
+        <div class="status-pill notice" id="hugeFileNotice" style="display:none;">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+          <span>Mmap Stream Active</span>
+        </div>
       </div>
-      <div class="status-right">
-        <span class="status-cell" id="statusCursor">Ln 1, Col 1</span>
-        <span class="status-cell" id="statusSelection" style="display:none;">(0 selected)</span>
-        <span class="status-cell" id="statusSpaces">Spaces: 2</span>
-        <span class="status-cell" id="statusSize">0 B</span>
-        <span class="status-cell">UTF-8</span>
-        <span class="status-cell">CRLF</span>
+
+      <!-- Right side: Metrics & Encoding -->
+      <div class="status-segment right">
+        <div class="status-pill" id="statusCursor" title="Cursor Line and Column">Ln 1, Col 1</div>
+        <div class="status-pill selection" id="statusSelection" style="display:none;">0 selected</div>
+        <div class="status-pill" id="statusSpaces" title="Tab Indentation">Spaces: 2</div>
+        <div class="status-pill" id="statusSize" title="File Size">0 B</div>
+        <div class="status-pill" title="Character Encoding">UTF-8</div>
+        <div class="status-pill" title="Line Endings">CRLF</div>
       </div>
     </footer>
 
-    <!-- Professional OS-like Save As Dialog -->
+    <!-- Native Save As Fallback Dialog (for web previews or unsupported direct saves) -->
     <div class="dialog-backdrop" id="saveDialog">
-      <div class="dialog-box">
+      <div class="dialog-card">
         <div class="dialog-header">
-          <h4>Save As</h4>
-          <button class="dialog-close-btn" id="closeDialogBtn" title="Close">&times;</button>
+          <div class="dialog-title-group">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+              <polyline points="17 21 17 13 7 13 7 21"></polyline>
+              <polyline points="7 3 7 8 15 8"></polyline>
+            </svg>
+            <h3>Save File As</h3>
+          </div>
+          <button class="dialog-close" id="closeDialogBtn" title="Close">&times;</button>
         </div>
         <div class="dialog-body">
-          <label>File name with desired extension:</label>
-          <input type="text" id="saveFileNameInput" class="dialog-input" placeholder="filename.extension">
-          <div class="dialog-suggestions-label">Quick format presets:</div>
-          <div class="dialog-suggestions">
-            <span class="sugg-chip" data-ext=".json">.json</span>
-            <span class="sugg-chip" data-ext=".js">.js</span>
-            <span class="sugg-chip" data-ext=".ts">.ts</span>
-            <span class="sugg-chip" data-ext=".py">.py</span>
-            <span class="sugg-chip" data-ext=".rs">.rs</span>
-            <span class="sugg-chip" data-ext=".yaml">.yaml</span>
-            <span class="sugg-chip" data-ext=".md">.md</span>
-            <span class="sugg-chip" data-ext=".env">.env</span>
-            <span class="sugg-chip" data-ext=".html">.html</span>
-            <span class="sugg-chip" data-ext=".css">.css</span>
-            <span class="sugg-chip" data-ext=".sql">.sql</span>
-            <span class="sugg-chip" data-ext=".txt">.txt</span>
+          <label for="saveFileNameInput">Enter file name with any custom extension:</label>
+          <div class="input-with-icon">
+            <input type="text" id="saveFileNameInput" class="dialog-field" placeholder="filename.extension">
+          </div>
+          <div class="chip-label">Quick format selection:</div>
+          <div class="chips-container">
+            <button class="format-chip" data-ext=".json">.json</button>
+            <button class="format-chip" data-ext=".js">.js</button>
+            <button class="format-chip" data-ext=".ts">.ts</button>
+            <button class="format-chip" data-ext=".py">.py</button>
+            <button class="format-chip" data-ext=".rs">.rs</button>
+            <button class="format-chip" data-ext=".yaml">.yaml</button>
+            <button class="format-chip" data-ext=".md">.md</button>
+            <button class="format-chip" data-ext=".env">.env</button>
+            <button class="format-chip" data-ext=".html">.html</button>
+            <button class="format-chip" data-ext=".css">.css</button>
+            <button class="format-chip" data-ext=".sql">.sql</button>
+            <button class="format-chip" data-ext=".txt">.txt</button>
           </div>
         </div>
         <div class="dialog-footer">

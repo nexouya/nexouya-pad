@@ -1,17 +1,32 @@
 /**
- * NEXOUYA PAD - Core Desktop Engine
- * Pure English Interface, CodeMirror 5 Integration, Mmap Architecture
+ * NEXOUYA PAD - Native Core Logic Engine
+ * Tauri 2 Rust Integration (File Dialogs, Mmap Stream) + CodeMirror 5
  */
 
-// Application State
+// Global Application State
 let state = {
   activeTabId: null,
   tabs: [],
   theme: localStorage.getItem('nexouya_theme') || 'theme-dark',
   wordWrap: localStorage.getItem('nexouya_wrap') !== 'false',
   lineNumbers: localStorage.getItem('nexouya_lines') !== 'false',
-  tabSize: parseInt(localStorage.getItem('nexouya_indent') || '2', 10)
+  tabSize: parseInt(localStorage.getItem('nexouya_indent') || '2', 10),
+  isRTL: localStorage.getItem('nexouya_rtl') === 'true'
 };
+
+// Tauri 2 Native Invocation Helper
+const hasTauri = window.__TAURI_INTERNALS__ !== undefined;
+async function invokeTauri(cmd, args = {}) {
+  if (hasTauri && window.__TAURI__ && window.__TAURI__.core) {
+    try {
+      return await window.__TAURI__.core.invoke(cmd, args);
+    } catch (e) {
+      console.warn(`Tauri command ${cmd} failed:`, e);
+      return null;
+    }
+  }
+  return null;
+}
 
 // Extension to CodeMirror Syntax Mapping
 const EXT_MODE_MAP = {
@@ -52,6 +67,8 @@ const statusSize = document.getElementById('statusSize');
 const hugeFileNotice = document.getElementById('hugeFileNotice');
 const wrapStatus = document.getElementById('wrapStatus');
 const lineNumStatus = document.getElementById('lineNumStatus');
+const rtlStatus = document.getElementById('rtlStatus');
+const quickRTLLabel = document.getElementById('quickRTLLabel');
 
 // Dialog Elements
 const saveDialog = document.getElementById('saveDialog');
@@ -60,10 +77,20 @@ const dialogConfirmBtn = document.getElementById('dialogConfirmBtn');
 const dialogCancelBtn = document.getElementById('dialogCancelBtn');
 const closeDialogBtn = document.getElementById('closeDialogBtn');
 
+// Find and Replace Elements
+const findBar = document.getElementById('findBar');
+const findInput = document.getElementById('findInput');
+const replaceInput = document.getElementById('replaceInput');
+const findNextBtn = document.getElementById('findNextBtn');
+const replaceBtn = document.getElementById('replaceBtn');
+const replaceAllBtn = document.getElementById('replaceAllBtn');
+const findCloseBtn = document.getElementById('findCloseBtn');
+
 // Quick Buttons
 const quickNewBtn = document.getElementById('quickNewBtn');
 const quickOpenBtn = document.getElementById('quickOpenBtn');
 const quickSaveBtn = document.getElementById('quickSaveBtn');
+const quickRTLBtn = document.getElementById('quickRTLBtn');
 
 // Menus
 const menuItems = [
@@ -89,16 +116,18 @@ function initEditor() {
     tabSize: state.tabSize,
     indentWithTabs: false,
     lineWrapping: state.wordWrap,
-    viewportMargin: 30, // Memory-efficient virtual line rendering
+    viewportMargin: 30, // Virtual rendering for speed
     extraKeys: {
-      'Ctrl-S': () => saveCurrentFile(),
-      'Cmd-S': () => saveCurrentFile(),
-      'Ctrl-O': () => openFilePicker(),
-      'Cmd-O': () => openFilePicker(),
+      'Ctrl-S': () => saveFileHandler(),
+      'Cmd-S': () => saveFileHandler(),
+      'Ctrl-O': () => openFileHandler(),
+      'Cmd-O': () => openFileHandler(),
       'Ctrl-N': () => createNewTab(),
       'Cmd-N': () => createNewTab(),
       'Ctrl-W': () => { if (state.activeTabId) closeTab(state.activeTabId); },
-      'Cmd-W': () => { if (state.activeTabId) closeTab(state.activeTabId); }
+      'Cmd-W': () => { if (state.activeTabId) closeTab(state.activeTabId); },
+      'Ctrl-F': () => showFindBar(),
+      'Cmd-F': () => showFindBar()
     }
   });
 
@@ -182,20 +211,20 @@ function renderTabs() {
   tabsScroll.innerHTML = '';
   state.tabs.forEach(tab => {
     const el = document.createElement('div');
-    el.className = `tab-tab ${tab.id === state.activeTabId ? 'active' : ''}`;
+    el.className = `tab-cell ${tab.id === state.activeTabId ? 'active' : ''}`;
     el.innerHTML = `
-      ${tab.isDirty ? '<span class="tab-dirty-bullet" title="Unsaved changes"></span>' : ''}
+      ${tab.isDirty ? '<span class="dirty-indicator" title="Unsaved changes"></span>' : ''}
       <span>${escapeHtml(tab.title)}</span>
-      <span class="tab-close-icon" title="Close Tab (Ctrl+W)">&times;</span>
+      <span class="tab-close-btn" title="Close Tab (Ctrl+W)">&times;</span>
     `;
     el.addEventListener('click', () => switchTab(tab.id));
-    el.querySelector('.tab-close-icon').addEventListener('click', (e) => closeTab(tab.id, e));
+    el.querySelector('.tab-close-btn').addEventListener('click', (e) => closeTab(tab.id, e));
     tabsScroll.appendChild(el);
   });
 }
 
 // -----------------------------------------------------------------------------
-// SYNTAX COLORING & LANGUAGE BADGE
+// SYNTAX COLORING & BADGE
 // -----------------------------------------------------------------------------
 function applySyntaxMode(filename) {
   if (!cmEditor) return;
@@ -232,8 +261,8 @@ function updateCursorInfo() {
 
   const selection = cmEditor.getSelection();
   if (selection.length > 0) {
-    statusSelection.style.display = 'inline';
-    statusSelection.textContent = `(${selection.length} selected)`;
+    statusSelection.style.display = 'inline-flex';
+    statusSelection.textContent = `${selection.length} selected`;
   } else {
     statusSelection.style.display = 'none';
   }
@@ -255,80 +284,26 @@ function formatBytes(bytes) {
 }
 
 // -----------------------------------------------------------------------------
-// FILE SAVE ENGINE (UNIVERSAL FORMAT)
+// NATIVE FILE DIALOGS & SAVE ENGINE (NO FORCED .TXT)
 // -----------------------------------------------------------------------------
-function saveCurrentFile() {
-  const tab = getActiveTab();
-  if (!tab) return;
-
-  if (tab.filePath) {
-    performDirectDownload(tab.filePath, cmEditor.getValue());
-    tab.isDirty = false;
-    renderTabs();
-  } else {
-    openSaveDialog();
-  }
-}
-
-function openSaveDialog() {
-  const tab = getActiveTab();
-  saveFileNameInput.value = tab ? tab.title : 'document.txt';
-  saveDialog.classList.add('show');
-  saveFileNameInput.focus();
-  saveFileNameInput.select();
-}
-
-function closeSaveDialog() {
-  saveDialog.classList.remove('show');
-}
-
-dialogConfirmBtn.addEventListener('click', () => {
-  const name = saveFileNameInput.value.trim() || 'document.txt';
-  const tab = getActiveTab();
-  if (tab) {
-    tab.title = name;
-    tab.filePath = name;
-    tab.isDirty = false;
-    performDirectDownload(name, cmEditor.getValue());
-    renderTabs();
-    updateHeaderAndStatus();
-    applySyntaxMode(name);
-  }
-  closeSaveDialog();
-});
-
-dialogCancelBtn.addEventListener('click', closeSaveDialog);
-closeDialogBtn.addEventListener('click', closeSaveDialog);
-
-// Quick preset chips in Save As dialog
-document.querySelectorAll('.sugg-chip').forEach(chip => {
-  chip.addEventListener('click', () => {
-    const ext = chip.getAttribute('data-ext');
-    let current = saveFileNameInput.value.trim();
-    if (current.includes('.')) {
-      current = current.substring(0, current.lastIndexOf('.'));
+async function openFileHandler() {
+  // 1. Try Native OS File Dialog via Rust
+  const chosenPath = await invokeTauri('open_file_dialog');
+  if (chosenPath) {
+    const meta = await invokeTauri('inspect_file', { path: chosenPath });
+    if (meta) {
+      const fileName = chosenPath.split(/[/\\]/).pop();
+      createNewTab(fileName, meta.preview, chosenPath);
+      if (meta.is_huge) {
+        hugeFileNotice.style.display = 'inline-flex';
+      } else {
+        hugeFileNotice.style.display = 'none';
+      }
+      return;
     }
-    saveFileNameInput.value = (current || 'document') + ext;
-    saveFileNameInput.focus();
-  });
-});
+  }
 
-function performDirectDownload(filename, text) {
-  const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-}
-
-// -----------------------------------------------------------------------------
-// FILE OPENING & DRAG-AND-DROP
-// -----------------------------------------------------------------------------
-function openFilePicker() {
+  // 2. Web Fallback if running outside Tauri
   const input = document.createElement('input');
   input.type = 'file';
   input.onchange = (e) => {
@@ -344,6 +319,98 @@ function openFilePicker() {
   input.click();
 }
 
+async function saveFileHandler() {
+  const tab = getActiveTab();
+  if (!tab) return;
+
+  if (tab.filePath) {
+    await writeContentToPath(tab.filePath, cmEditor.getValue());
+    tab.isDirty = false;
+    renderTabs();
+  } else {
+    await saveAsHandler();
+  }
+}
+
+async function saveAsHandler() {
+  const tab = getActiveTab();
+  const defaultName = tab ? tab.title : 'untitled.txt';
+
+  // 1. Try Native OS Save Dialog via Rust (Shows Real Windows Explorer / Linux GTK)
+  const chosenPath = await invokeTauri('save_file_dialog', { defaultName });
+  if (chosenPath) {
+    const fileName = chosenPath.split(/[/\\]/).pop();
+    await writeContentToPath(chosenPath, cmEditor.getValue());
+    if (tab) {
+      tab.title = fileName;
+      tab.filePath = chosenPath;
+      tab.isDirty = false;
+      renderTabs();
+      updateHeaderAndStatus();
+      applySyntaxMode(fileName);
+    }
+    return;
+  }
+
+  // 2. Fallback Web Modal if running in browser
+  saveFileNameInput.value = defaultName;
+  saveDialog.classList.add('show');
+  saveFileNameInput.focus();
+  saveFileNameInput.select();
+}
+
+async function writeContentToPath(path, content) {
+  const res = await invokeTauri('save_file_direct', { path, contents: content });
+  if (res === null) {
+    // Web fallback download
+    triggerDownload(path, content);
+  }
+}
+
+function triggerDownload(filename, text) {
+  const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+// Web Fallback Dialog Handlers
+dialogConfirmBtn.addEventListener('click', () => {
+  const name = saveFileNameInput.value.trim() || 'document.txt';
+  const tab = getActiveTab();
+  if (tab) {
+    tab.title = name;
+    tab.filePath = name;
+    tab.isDirty = false;
+    triggerDownload(name, cmEditor.getValue());
+    renderTabs();
+    updateHeaderAndStatus();
+    applySyntaxMode(name);
+  }
+  saveDialog.classList.remove('show');
+});
+
+dialogCancelBtn.addEventListener('click', () => saveDialog.classList.remove('show'));
+closeDialogBtn.addEventListener('click', () => saveDialog.classList.remove('show'));
+
+document.querySelectorAll('.format-chip').forEach(chip => {
+  chip.addEventListener('click', () => {
+    const ext = chip.getAttribute('data-ext');
+    let current = saveFileNameInput.value.trim();
+    if (current.includes('.')) {
+      current = current.substring(0, current.lastIndexOf('.'));
+    }
+    saveFileNameInput.value = (current || 'document') + ext;
+    saveFileNameInput.focus();
+  });
+});
+
+// Drag and Drop
 window.addEventListener('dragover', e => e.preventDefault());
 window.addEventListener('drop', e => {
   e.preventDefault();
@@ -358,23 +425,56 @@ window.addEventListener('drop', e => {
 });
 
 // -----------------------------------------------------------------------------
-// FORMAT DOCUMENT & QUICK TOOLS
+// FIND & REPLACE BAR LOGIC
 // -----------------------------------------------------------------------------
-function formatDocument() {
-  if (!cmEditor) return;
-  const val = cmEditor.getValue().trim();
-  try {
-    const obj = JSON.parse(val);
-    cmEditor.setValue(JSON.stringify(obj, null, state.tabSize));
-  } catch (err) {
-    // If not JSON, trim trailing whitespaces cleanly
-    const lines = val.split('\n').map(l => l.trimRight());
-    cmEditor.setValue(lines.join('\n'));
-  }
+function showFindBar() {
+  findBar.classList.add('show');
+  findInput.focus();
+  findInput.select();
 }
 
+function hideFindBar() {
+  findBar.classList.remove('show');
+  if (cmEditor) cmEditor.focus();
+}
+
+findCloseBtn.addEventListener('click', hideFindBar);
+
+findNextBtn.addEventListener('click', () => {
+  if (!cmEditor) return;
+  const q = findInput.value;
+  if (!q) return;
+
+  const cursor = cmEditor.getSearchCursor ? cmEditor.getSearchCursor(q) : null;
+  if (cursor && cursor.findNext()) {
+    cmEditor.setSelection(cursor.from(), cursor.to());
+  }
+});
+
+replaceBtn.addEventListener('click', () => {
+  if (!cmEditor) return;
+  const q = findInput.value;
+  const r = replaceInput.value;
+  if (!q) return;
+
+  const text = cmEditor.getValue();
+  const replaced = text.replace(q, r);
+  cmEditor.setValue(replaced);
+});
+
+replaceAllBtn.addEventListener('click', () => {
+  if (!cmEditor) return;
+  const q = findInput.value;
+  const r = replaceInput.value;
+  if (!q) return;
+
+  const text = cmEditor.getValue();
+  const replaced = text.split(q).join(r);
+  cmEditor.setValue(replaced);
+});
+
 // -----------------------------------------------------------------------------
-// MENU SYSTEM
+// MENU & THEME MANAGEMENT
 // -----------------------------------------------------------------------------
 menuItems.forEach(({ btn, menu }) => {
   btn.addEventListener('click', (e) => {
@@ -388,8 +488,8 @@ document.addEventListener('click', () => {
   menuItems.forEach(m => m.menu.classList.remove('show'));
 });
 
-// Settings: Theme Switcher
-document.querySelectorAll('.theme-select').forEach(item => {
+// Themes
+document.querySelectorAll('.theme-opt').forEach(item => {
   item.addEventListener('click', () => {
     const theme = item.getAttribute('data-theme');
     applyTheme(theme);
@@ -407,8 +507,8 @@ function applyTheme(theme) {
   }
 }
 
-// Settings: Indentation
-document.querySelectorAll('.indent-select').forEach(item => {
+// Indentation
+document.querySelectorAll('.indent-opt').forEach(item => {
   item.addEventListener('click', () => {
     const indent = parseInt(item.getAttribute('data-indent'), 10);
     state.tabSize = indent;
@@ -418,7 +518,7 @@ document.querySelectorAll('.indent-select').forEach(item => {
   });
 });
 
-// View Menu: Word Wrap & Line Numbers
+// View Toggles
 document.getElementById('menuToggleWrap').addEventListener('click', () => {
   state.wordWrap = !state.wordWrap;
   localStorage.setItem('nexouya_wrap', state.wordWrap);
@@ -433,50 +533,60 @@ document.getElementById('menuToggleLines').addEventListener('click', () => {
   if (cmEditor) cmEditor.setOption('lineNumbers', state.lineNumbers);
 });
 
-// Menu Action Bindings
+// RTL / LTR Persian Toggle
+function toggleRTL() {
+  state.isRTL = !state.isRTL;
+  localStorage.setItem('nexouya_rtl', state.isRTL);
+  rtlStatus.textContent = state.isRTL ? 'ON' : 'OFF';
+  quickRTLLabel.textContent = state.isRTL ? 'RTL' : 'LTR';
+  if (cmEditor) {
+    cmEditor.getWrapperElement().style.direction = state.isRTL ? 'rtl' : 'ltr';
+    cmEditor.refresh();
+  }
+}
+
+document.getElementById('menuToggleRTL').addEventListener('click', toggleRTL);
+quickRTLBtn.addEventListener('click', toggleRTL);
+
+// Action Bindings
 document.getElementById('menuNew').addEventListener('click', () => createNewTab());
-document.getElementById('menuOpen').addEventListener('click', openFilePicker);
-document.getElementById('menuSave').addEventListener('click', saveCurrentFile);
-document.getElementById('menuSaveAs').addEventListener('click', openSaveDialog);
+document.getElementById('menuOpen').addEventListener('click', openFileHandler);
+document.getElementById('menuSave').addEventListener('click', saveFileHandler);
+document.getElementById('menuSaveAs').addEventListener('click', saveAsHandler);
 document.getElementById('menuCloseTab').addEventListener('click', () => {
   if (state.activeTabId) closeTab(state.activeTabId);
 });
 document.getElementById('menuUndo').addEventListener('click', () => cmEditor && cmEditor.undo());
 document.getElementById('menuRedo').addEventListener('click', () => cmEditor && cmEditor.redo());
+document.getElementById('menuFind').addEventListener('click', showFindBar);
 document.getElementById('menuFormat').addEventListener('click', formatDocument);
 document.getElementById('menuSelectAll').addEventListener('click', () => cmEditor && cmEditor.execCommand('selectAll'));
 
-// Quick Buttons
 quickNewBtn.addEventListener('click', () => createNewTab());
-quickOpenBtn.addEventListener('click', openFilePicker);
-quickSaveBtn.addEventListener('click', saveCurrentFile);
+quickOpenBtn.addEventListener('click', openFileHandler);
+quickSaveBtn.addEventListener('click', saveFileHandler);
 addTabBtn.addEventListener('click', () => createNewTab());
 
-// -----------------------------------------------------------------------------
-// KEYBOARD SHORTCUTS
-// -----------------------------------------------------------------------------
+function formatDocument() {
+  if (!cmEditor) return;
+  const val = cmEditor.getValue().trim();
+  try {
+    const obj = JSON.parse(val);
+    cmEditor.setValue(JSON.stringify(obj, null, state.tabSize));
+  } catch (err) {
+    const lines = val.split('\n').map(l => l.trimRight());
+    cmEditor.setValue(lines.join('\n'));
+  }
+}
+
+// Global Hotkeys
 window.addEventListener('keydown', (e) => {
-  if (e.ctrlKey || e.metaKey) {
-    if (e.key === 's') {
-      e.preventDefault();
-      if (e.shiftKey) openSaveDialog(); else saveCurrentFile();
-    } else if (e.key === 'o') {
-      e.preventDefault();
-      openFilePicker();
-    } else if (e.key === 'n') {
-      e.preventDefault();
-      createNewTab();
-    } else if (e.key === 'w') {
-      e.preventDefault();
-      if (state.activeTabId) closeTab(state.activeTabId);
-    }
-  } else if (e.altKey && e.key.toLowerCase() === 'f') {
-    e.preventDefault();
-    formatDocument();
+  if (e.key === 'Escape') {
+    hideFindBar();
+    saveDialog.classList.remove('show');
   }
 });
 
-// Helper utilities
 function escapeHtml(str) {
   return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
@@ -488,14 +598,19 @@ function saveSession() {
   }));
 }
 
-// Initial Boot Sequence
+// Initial Boot
 initEditor();
 applyTheme(state.theme);
 wrapStatus.textContent = state.wordWrap ? 'ON' : 'OFF';
 lineNumStatus.textContent = state.lineNumbers ? 'ON' : 'OFF';
+rtlStatus.textContent = state.isRTL ? 'ON' : 'OFF';
+quickRTLLabel.textContent = state.isRTL ? 'RTL' : 'LTR';
 statusSpaces.textContent = `Spaces: ${state.tabSize}`;
+if (state.isRTL && cmEditor) {
+  cmEditor.getWrapperElement().style.direction = 'rtl';
+}
 
-// Restore Previous Session or Default Demo
+// Restore Session or Create Initial Clean File
 const saved = localStorage.getItem('nexouya_state');
 if (saved) {
   try {
@@ -503,36 +618,29 @@ if (saved) {
     state.tabs = parsed.tabs || [];
     state.activeTabId = parsed.activeTabId || null;
   } catch (e) {
-    console.error('Session restore error:', e);
+    console.error('State restore error:', e);
   }
 }
 
 if (!state.tabs || state.tabs.length === 0) {
-  const initialCode = `// ==========================================
-// NEXOUYA PAD - Professional Desktop Editor
-// ==========================================
+  const initialCode = `// ====================================================
+// NEXOUYA PAD - Native High-Performance Desktop Editor
+// ====================================================
 
-import { readChunk, saveFile } from "@tauri/fs-mmap";
+export const PAD_MANIFEST = {
+  name: "NEXOUYA PAD",
+  engine: "Tauri 2 + Rust Memory-Mapped File Core",
+  targets: ["Windows (x86_64)", "Linux (Ubuntu/Debian, Arch, Fedora, KDE/Hyprland)"],
+  features: [
+    "Native Windows Explorer / Linux GTK file pickers",
+    "Save to any format without forced extensions",
+    "Memory-mapped zero-copy reader for multi-gigabyte files",
+    "VS Code precision syntax highlighting"
+  ],
+  version: "0.2.0"
+};
 
-class HighPerformanceEngine {
-  constructor(config = {}) {
-    this.name = "NEXOUYA PAD";
-    this.version = "1.0.0";
-    this.memoryMapped = true;
-    this.supportedExtensions = [
-      ".json", ".yaml", ".py", ".rs", ".js", ".ts", ".env", ".md"
-    ];
-  }
-
-  async streamLargeFile(path, offset = 0) {
-    // Reads chunks directly via Rust mmap memory mapping
-    console.log(\`Streaming \${path} without loading multi-GBs into RAM\`);
-    return await readChunk(path, offset, 64 * 1024);
-  }
-}
-
-const engine = new HighPerformanceEngine();
-console.log("Ready.", engine);`;
+console.log("Ready for production.");`;
 
   createNewTab('main.js', initialCode);
 } else {

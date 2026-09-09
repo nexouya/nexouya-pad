@@ -1,6 +1,6 @@
 [package]
 name = "nexouya-pad"
-version = "0.1.0"
+version = "0.2.0"
 description = "NEXOUYA PAD - Professional high-performance text editor with Rust core & VS Code syntax highlighting"
 authors = ["nexouya"]
 license = "MIT"

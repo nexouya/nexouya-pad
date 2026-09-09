@@ -1,58 +1,66 @@
 # NEXOUYA PAD ⚡
 
-> **Professional, high-performance desktop text and code editor built with Tauri 2 & Rust.**
-
-NEXOUYA PAD solves the notorious flaws of Windows Notepad: crashes and freezes on large files, forced `.txt` extensions, lack of true VS Code syntax highlighting, and lost state upon exit.
-
----
-
-## 🚀 Key Advantages Over Standard Notepad
-
-1. **Rust Memory-Mapped File Core (`mmap`):**
-   - Handles multi-gigabyte or heavy text files without blowing up RAM.
-   - Reads streamed chunks on demand instead of loading everything into memory at once.
-
-2. **True VS Code Syntax Highlighting:**
-   - Powered by real tokenizer grammar engines for **JavaScript**, **Python**, **Rust**, **YAML**, **Markdown**, **HTML/CSS**, **JSON**, and **ENV**.
-   - Keywords, functions, strings, numbers, and comments are cleanly colored just like in VS Code.
-
-3. **Universal Save Engine (No Forced `.txt`):**
-   - Complete freedom to save and open files with any extension (`.yaml`, `.json`, `.env`, `.py`, `.rs`, `.sql`, `.toml`, etc.) without Windows forcing `.txt` on you.
-   - Quick extension chip selectors in the Save As dialog.
-
-4. **Engineered Desktop Design (Zero AI-Cliché / No AI-Soup):**
-   - Clean native menu bar (`File`, `Edit`, `Settings`).
-   - Settings dropdown with **VS Dark** and **VS Light** themes.
-   - Bilingual support: One-click instant switch between **LTR** and **RTL (Persian/Arabic)**.
-
-5. **Crash-Proof Local Tab Session:**
-   - Multi-tab support.
-   - All open tabs and unsaved changes survive sudden reboots and application restarts.
+> **Precision Engineered Desktop Code & Text Editor built with Tauri 2 & Rust.**
+> Cross-platform, crash-resilient, memory-mapped core with true VS Code syntax highlighting.
 
 ---
 
-## 🛠️ Architecture
+## 🌟 10/10 Desktop Features
 
-- **Backend:** [Tauri 2](https://v2.tauri.app/) + [Rust](https://www.rust-lang.org/) (`memmap2`, `serde`)
-- **Frontend:** CodeMirror 5 Syntax Engine + Vanilla JS & CSS
-- **CI / CD:** GitHub Actions automated Windows installer & binary builder
+### 1. 🗂️ Native OS File Dialogs (Windows & Linux)
+- Full integration with **Windows Explorer** and **Linux GTK File Chooser**.
+- Browse directories visually, pick folders, and save with **any custom extension** (`.json`, `.yaml`, `.py`, `.rs`, `.env`, `.md`, `.sql`, etc.) without Windows forcing `.txt` extensions.
+
+### 2. ⚡ Rust Memory-Mapped File Core (`mmap`)
+- Opens files of any size (from kilobytes to **multi-gigabytes**) instantaneously.
+- Zero UI freezing: reads streamed chunks directly from the disk cache with minimal RAM footprint.
+
+### 3. 🎨 Precision Engineered UI (Zero AI-Cliché / No AI-Soup)
+- Clean, native desktop feel inspired by Windows 11 and professional developer tooling.
+- **Dark Studio (Default)**, **Clean Paper (Light Mode)**, and **Obsidian Deep (High Contrast)** themes.
+- Dedicated **Find & Replace bar (`Ctrl+F`)** with instant regex/text replacement.
+- Integrated Persian / RTL mode toggle with a single click or hotkey.
+
+### 4. 🐧 True Multi-Platform Builds (Windows + Universal Linux)
+- Pre-compiled packages for:
+  - **Windows:** `.msi` and setup `.exe`
+  - **Linux:** `.deb` (Ubuntu/Debian), AppImage (Arch, Fedora, OpenSUSE, KDE Plasma, GNOME, Hyprland, Sway)
 
 ---
 
-## 💻 Building & Running
+## ⌨️ Essential Keyboard Shortcuts
 
+| Shortcut | Action |
+|---|---|
+| `Ctrl+N` | New File / Tab |
+| `Ctrl+O` | Open File (Native Dialog) |
+| `Ctrl+S` | Save Document |
+| `Ctrl+Shift+S` | Save As (Native Explorer / File Chooser) |
+| `Ctrl+W` | Close Current Tab |
+| `Ctrl+F` | Find & Replace Bar |
+| `Ctrl+Z` / `Ctrl+Y` | Undo / Redo |
+| `Alt+F` | Format Document / JSON |
+
+---
+
+## 🚀 Building & Installing
+
+### Automated GitHub Releases
+Download pre-built installers directly from the [NEXOUYA PAD Releases Page](https://github.com/nexouya/nexouya-pad/releases).
+
+### Local Development
 ```bash
-# Clone the repository
+# Clone
 git clone https://github.com/nexouya/nexouya-pad.git
 cd nexouya-pad
 
-# Install dependencies
+# Install Dependencies
 npm install
 
-# Run in Development mode
+# Run Desktop Dev App
 npm run tauri dev
 
-# Build Windows Release (.msi / .exe)
+# Compile Native Binaries
 npm run tauri build
 ```
 

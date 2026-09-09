@@ -1,4 +1,4 @@
-name: Release NEXOUYA PAD
+name: Release Multi-Platform NEXOUYA PAD
 
 on:
   push:
@@ -14,7 +14,14 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          # Windows MSVC Build
           - platform: 'windows-latest'
+            target: 'x86_64-pc-windows-msvc'
+            args: ''
+
+          # Linux Universal Build (Debian/Ubuntu, Arch, Fedora, KDE/GNOME/Hyprland)
+          - platform: 'ubuntu-22.04'
+            target: 'x86_64-unknown-linux-gnu'
             args: ''
 
     runs-on: ${{ matrix.platform }}
@@ -27,10 +34,16 @@ jobs:
         with:
           node-version: 20
 
+      - name: Install Linux Dependencies
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev
+
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
         with:
-          targets: x86_64-pc-windows-msvc
+          targets: ${{ matrix.target }}
 
       - name: Install frontend dependencies
         run: npm install
@@ -40,9 +53,17 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tagName: app-v__VERSION__
+          tagName: v__VERSION__
           releaseName: 'NEXOUYA PAD v__VERSION__'
-          releaseBody: 'NEXOUYA PAD - Professional high-performance text and code editor with Rust mmap engine and VS Code syntax highlighting.'
+          releaseBody: |
+            ## NEXOUYA PAD Desktop Release v__VERSION__
+
+            ### ✨ What's New:
+            - **Native OS File Dialogs:** Real Windows Explorer and Linux GTK Save As dialog with folder navigation and no forced extensions.
+            - **Cross-Platform Linux & Windows Binaries:** Ready-to-use Windows `.msi` / `.exe` installer and Linux `.deb` / AppImage bundles.
+            - **Rust Memory-Mapped Core (`mmap`):** Open multi-gigabyte files instantly with zero UI freezing.
+            - **True VS Code Syntax Highlighting:** Real tokenization for JavaScript, TypeScript, Python, Rust, YAML, Markdown, HTML, and CSS.
+            - **Clean Desktop Aesthetics:** Precision typography, dark studio theme, find & replace bar, and crash-resilient tabs.
           releaseDraft: false
           prerelease: false
           args: ${{ matrix.args }}
