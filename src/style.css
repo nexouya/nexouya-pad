@@ -34,6 +34,8 @@ body.theme-dark {
   --badge-fg: #4dabf7;
   --chip-bg: #22242e;
   --chip-hover: #2d313e;
+  --highlight-bg: rgba(255, 230, 0, 0.35);
+  --highlight-border: #ffd700;
 }
 
 /* 2. THEME: CLEAN PAPER (Light Mode) */
@@ -58,6 +60,8 @@ body.theme-light {
   --badge-fg: #0055aa;
   --chip-bg: #f0f2f6;
   --chip-hover: #e2e5eb;
+  --highlight-bg: rgba(255, 215, 0, 0.45);
+  --highlight-border: #d4a000;
 }
 
 /* 3. THEME: OBSIDIAN DEEP (High-Contrast Dark) */
@@ -82,6 +86,8 @@ body.theme-obsidian {
   --badge-fg: #00e5ff;
   --chip-bg: #141720;
   --chip-hover: #1c202c;
+  --highlight-bg: rgba(0, 229, 255, 0.35);
+  --highlight-border: #00e5ff;
 }
 
 * {
@@ -390,7 +396,7 @@ body {
   color: var(--text-main);
   font-family: var(--font-code);
   font-size: 12px;
-  padding: 4px 8px;
+  padding: 5px 8px;
   border-radius: var(--radius-sm);
   outline: none;
 }
@@ -404,6 +410,17 @@ body {
   gap: 6px;
 }
 
+.search-counter-badge {
+  font-size: 11px;
+  color: var(--accent-color);
+  font-family: var(--font-code);
+  font-weight: 600;
+  margin: 0 6px;
+  padding: 2px 6px;
+  background: rgba(0, 136, 255, 0.12);
+  border-radius: 3px;
+}
+
 .find-btn {
   background: var(--chip-bg);
   border: 1px solid var(--border-app);
@@ -412,6 +429,7 @@ body {
   font-size: 11.5px;
   border-radius: var(--radius-sm);
   cursor: pointer;
+  transition: all var(--transition-fast);
 }
 .find-btn:hover {
   background: var(--accent-color);
@@ -425,6 +443,16 @@ body {
   font-size: 18px;
   cursor: pointer;
   margin-left: 6px;
+}
+.find-close-btn:hover {
+  color: #ff5555;
+}
+
+/* SEARCH HIGHLIGHTS IN CODEMIRROR */
+.cm-search-highlight {
+  background-color: var(--highlight-bg) !important;
+  border-bottom: 1px solid var(--highlight-border);
+  border-radius: 2px;
 }
 
 /* ==========================================================================
@@ -447,7 +475,7 @@ body {
 .CodeMirror {
   height: 100% !important;
   font-family: var(--font-code) !important;
-  font-size: 13.5px !important;
+  font-size: 13.5px;
   line-height: 1.65 !important;
   background: var(--bg-editor) !important;
   color: var(--text-main) !important;
@@ -519,126 +547,3 @@ body {
 .status-pill.selection {
   color: var(--accent-color);
 }
-
-/* ==========================================================================
-   MODAL SAVE DIALOG (OS EMULATION)
-   ========================================================================== */
-.dialog-backdrop {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.65);
-  backdrop-filter: blur(4px);
-  display: none;
-  align-items: center;
-  justify-content: center;
-  z-index: 2000;
-}
-.dialog-backdrop.show { display: flex; }
-
-.dialog-card {
-  background: var(--bg-menu);
-  border: 1px solid var(--border-app);
-  border-radius: var(--radius-lg);
-  box-shadow: 0 16px 45px rgba(0, 0, 0, 0.55);
-  width: 460px;
-  padding: 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-}
-
-.dialog-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.dialog-title-group {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  color: var(--text-main);
-}
-.dialog-title-group h3 {
-  font-size: 14px;
-  font-weight: 600;
-}
-
-.dialog-close {
-  background: transparent;
-  border: none;
-  color: var(--text-muted);
-  font-size: 18px;
-  cursor: pointer;
-}
-
-.dialog-body label {
-  font-size: 12px;
-  color: var(--text-muted);
-  margin-bottom: 6px;
-  display: block;
-}
-
-.dialog-field {
-  width: 100%;
-  background: var(--bg-window);
-  border: 1px solid var(--border-app);
-  color: var(--text-main);
-  font-family: var(--font-code);
-  font-size: 13px;
-  padding: 8px 10px;
-  border-radius: var(--radius-sm);
-  outline: none;
-}
-.dialog-field:focus { border-color: var(--border-focus); }
-
-.chip-label {
-  font-size: 11px;
-  color: var(--text-dim);
-  margin-top: 10px;
-  margin-bottom: 5px;
-}
-
-.chips-container {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-
-.format-chip {
-  background: var(--chip-bg);
-  border: 1px solid var(--border-app);
-  color: var(--text-main);
-  font-size: 11px;
-  font-family: var(--font-code);
-  padding: 3px 8px;
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  transition: all var(--transition-fast);
-}
-.format-chip:hover {
-  background: var(--accent-color);
-  border-color: var(--accent-color);
-  color: #ffffff;
-}
-
-.dialog-footer {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-  margin-top: 6px;
-}
-
-.btn {
-  padding: 7px 16px;
-  border-radius: var(--radius-sm);
-  font-size: 12px;
-  font-weight: 600;
-  cursor: pointer;
-  border: none;
-  transition: all var(--transition-fast);
-}
-.btn-secondary { background: var(--chip-bg); color: var(--text-main); border: 1px solid var(--border-app); }
-.btn-secondary:hover { background: var(--chip-hover); }
-.btn-primary { background: var(--accent-color); color: #ffffff; }
-.btn-primary:hover { background: var(--accent-hover); }

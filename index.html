@@ -36,7 +36,7 @@
                 <span class="item-shortcut">Ctrl+N</span>
               </div>
               <div class="menu-item" id="menuOpen">
-                <span class="item-label">Open File...</span>
+                <span class="item-label">Open File (This PC)...</span>
                 <span class="item-shortcut">Ctrl+O</span>
               </div>
               <div class="menu-divider"></div>
@@ -45,7 +45,7 @@
                 <span class="item-shortcut">Ctrl+S</span>
               </div>
               <div class="menu-item" id="menuSaveAs">
-                <span class="item-label">Save As...</span>
+                <span class="item-label">Save As (This PC)...</span>
                 <span class="item-shortcut">Ctrl+Shift+S</span>
               </div>
               <div class="menu-divider"></div>
@@ -71,7 +71,7 @@
               <div class="menu-divider"></div>
               <div class="menu-item" id="menuFind">
                 <span class="item-label">Find & Replace</span>
-                <span class="item-shortcut">Ctrl+F</span>
+                <span class="item-shortcut">Ctrl+R</span>
               </div>
               <div class="menu-item" id="menuFormat">
                 <span class="item-label">Format Document / JSON</span>
@@ -95,6 +95,19 @@
               <div class="menu-item" id="menuToggleLines">
                 <span class="item-label">Line Numbers</span>
                 <span class="item-status" id="lineNumStatus">ON</span>
+              </div>
+              <div class="menu-divider"></div>
+              <div class="menu-item" id="menuZoomIn">
+                <span class="item-label">Zoom In</span>
+                <span class="item-shortcut">Ctrl++</span>
+              </div>
+              <div class="menu-item" id="menuZoomOut">
+                <span class="item-label">Zoom Out</span>
+                <span class="item-shortcut">Ctrl+-</span>
+              </div>
+              <div class="menu-item" id="menuZoomReset">
+                <span class="item-label">Reset Zoom</span>
+                <span class="item-shortcut">Ctrl+0</span>
               </div>
               <div class="menu-divider"></div>
               <div class="menu-item" id="menuToggleRTL">
@@ -139,7 +152,7 @@
             <line x1="5" y1="12" x2="19" y2="12"></line>
           </svg>
         </button>
-        <button class="tool-action-btn" id="quickOpenBtn" title="Open File (Ctrl+O)">
+        <button class="tool-action-btn" id="quickOpenBtn" title="Open File in This PC (Ctrl+O)">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
           </svg>
@@ -168,26 +181,27 @@
       </button>
     </section>
 
-    <!-- Find and Replace Bar (Embedded, shown on Ctrl+F) -->
+    <!-- 3. Professional Find & Replace Bar (Ctrl+R / Ctrl+F) -->
     <div class="find-replace-bar" id="findBar">
       <div class="find-inputs">
-        <input type="text" id="findInput" placeholder="Find..." class="find-field">
+        <input type="text" id="findInput" placeholder="Find in document (Press Enter for next)..." class="find-field">
         <input type="text" id="replaceInput" placeholder="Replace with..." class="find-field">
       </div>
       <div class="find-buttons">
-        <button class="find-btn" id="findNextBtn" title="Next match">Next</button>
-        <button class="find-btn" id="replaceBtn" title="Replace current">Replace</button>
-        <button class="find-btn" id="replaceAllBtn" title="Replace all">All</button>
+        <button class="find-btn" id="findPrevBtn" title="Previous match (Shift+Enter)">Prev</button>
+        <button class="find-btn" id="findNextBtn" title="Next match (Enter)">Next</button>
+        <button class="find-btn" id="replaceBtn" title="Replace current match">Replace</button>
+        <button class="find-btn" id="replaceAllBtn" title="Replace all matches">All</button>
         <button class="find-close-btn" id="findCloseBtn" title="Close (Esc)">&times;</button>
       </div>
     </div>
 
-    <!-- 3. Primary Editor Stage -->
+    <!-- 4. Primary Editor Stage -->
     <main class="editor-workspace">
       <div id="codeMirrorMount"></div>
     </main>
 
-    <!-- 4. Refined Premium Status Bar -->
+    <!-- 5. Refined Premium Status Bar -->
     <footer class="app-status-bar">
       <!-- Left side: File Name & Language -->
       <div class="status-segment left">
@@ -195,7 +209,7 @@
         <div class="status-badge" id="statusLanguage">JAVASCRIPT</div>
         <div class="status-pill notice" id="hugeFileNotice" style="display:none;">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
-          <span>Mmap Stream Active</span>
+          <span>Read-Only Safety</span>
         </div>
       </div>
 
@@ -203,54 +217,13 @@
       <div class="status-segment right">
         <div class="status-pill" id="statusCursor" title="Cursor Line and Column">Ln 1, Col 1</div>
         <div class="status-pill selection" id="statusSelection" style="display:none;">0 selected</div>
+        <div class="status-pill" id="statusZoom" title="Dynamic Zoom (Ctrl + Wheel)">100%</div>
         <div class="status-pill" id="statusSpaces" title="Tab Indentation">Spaces: 2</div>
         <div class="status-pill" id="statusSize" title="File Size">0 B</div>
         <div class="status-pill" title="Character Encoding">UTF-8</div>
         <div class="status-pill" title="Line Endings">CRLF</div>
       </div>
     </footer>
-
-    <!-- Native Save As Fallback Dialog (for web previews or unsupported direct saves) -->
-    <div class="dialog-backdrop" id="saveDialog">
-      <div class="dialog-card">
-        <div class="dialog-header">
-          <div class="dialog-title-group">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
-              <polyline points="17 21 17 13 7 13 7 21"></polyline>
-              <polyline points="7 3 7 8 15 8"></polyline>
-            </svg>
-            <h3>Save File As</h3>
-          </div>
-          <button class="dialog-close" id="closeDialogBtn" title="Close">&times;</button>
-        </div>
-        <div class="dialog-body">
-          <label for="saveFileNameInput">Enter file name with any custom extension:</label>
-          <div class="input-with-icon">
-            <input type="text" id="saveFileNameInput" class="dialog-field" placeholder="filename.extension">
-          </div>
-          <div class="chip-label">Quick format selection:</div>
-          <div class="chips-container">
-            <button class="format-chip" data-ext=".json">.json</button>
-            <button class="format-chip" data-ext=".js">.js</button>
-            <button class="format-chip" data-ext=".ts">.ts</button>
-            <button class="format-chip" data-ext=".py">.py</button>
-            <button class="format-chip" data-ext=".rs">.rs</button>
-            <button class="format-chip" data-ext=".yaml">.yaml</button>
-            <button class="format-chip" data-ext=".md">.md</button>
-            <button class="format-chip" data-ext=".env">.env</button>
-            <button class="format-chip" data-ext=".html">.html</button>
-            <button class="format-chip" data-ext=".css">.css</button>
-            <button class="format-chip" data-ext=".sql">.sql</button>
-            <button class="format-chip" data-ext=".txt">.txt</button>
-          </div>
-        </div>
-        <div class="dialog-footer">
-          <button class="btn btn-secondary" id="dialogCancelBtn">Cancel</button>
-          <button class="btn btn-primary" id="dialogConfirmBtn">Save</button>
-        </div>
-      </div>
-    </div>
 
   </div>
 

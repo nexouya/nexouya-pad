@@ -1,6 +1,6 @@
 /**
  * NEXOUYA PAD - Native Core Logic Engine
- * Tauri 2 Rust Integration (rfd File Dialogs, Mmap Stream) + CodeMirror 5
+ * Clean Native File Explorer Saving + Real Search & Highlight + Dynamic Zoom
  */
 
 // Global Application State
@@ -11,10 +11,14 @@ let state = {
   wordWrap: localStorage.getItem('nexouya_wrap') !== 'false',
   lineNumbers: localStorage.getItem('nexouya_lines') !== 'false',
   tabSize: parseInt(localStorage.getItem('nexouya_indent') || '2', 10),
-  isRTL: localStorage.getItem('nexouya_rtl') === 'true'
+  isRTL: localStorage.getItem('nexouya_rtl') === 'true',
+  zoomLevel: parseFloat(localStorage.getItem('nexouya_zoom') || '100') // 100% default
 };
 
-// Robust Tauri 2 Native Invocation Helper
+// Flag to prevent synthetic onChange events from dirtying fresh tabs
+let isProgrammaticChange = false;
+
+// Tauri 2 Native Invocation Helper
 async function invokeTauri(cmd, args = {}) {
   try {
     if (window.__TAURI__ && window.__TAURI__.core && typeof window.__TAURI__.core.invoke === 'function') {
@@ -65,23 +69,18 @@ const statusCursor = document.getElementById('statusCursor');
 const statusSelection = document.getElementById('statusSelection');
 const statusSpaces = document.getElementById('statusSpaces');
 const statusSize = document.getElementById('statusSize');
+const statusZoom = document.getElementById('statusZoom');
 const hugeFileNotice = document.getElementById('hugeFileNotice');
 const wrapStatus = document.getElementById('wrapStatus');
 const lineNumStatus = document.getElementById('lineNumStatus');
 const rtlStatus = document.getElementById('rtlStatus');
 const quickRTLLabel = document.getElementById('quickRTLLabel');
 
-// Dialog Elements
-const saveDialog = document.getElementById('saveDialog');
-const saveFileNameInput = document.getElementById('saveFileNameInput');
-const dialogConfirmBtn = document.getElementById('dialogConfirmBtn');
-const dialogCancelBtn = document.getElementById('dialogCancelBtn');
-const closeDialogBtn = document.getElementById('closeDialogBtn');
-
 // Find and Replace Elements
 const findBar = document.getElementById('findBar');
 const findInput = document.getElementById('findInput');
 const replaceInput = document.getElementById('replaceInput');
+const findPrevBtn = document.getElementById('findPrevBtn');
 const findNextBtn = document.getElementById('findNextBtn');
 const replaceBtn = document.getElementById('replaceBtn');
 const replaceAllBtn = document.getElementById('replaceAllBtn');
@@ -102,6 +101,9 @@ const menuItems = [
 ];
 
 let cmEditor = null;
+let searchMarks = []; // Array of TextMarker instances
+let searchMatches = []; // Match coordinates
+let currentMatchIndex = -1;
 
 // Initialize CodeMirror Editor Instance
 function initEditor() {
@@ -117,7 +119,7 @@ function initEditor() {
     tabSize: state.tabSize,
     indentWithTabs: false,
     lineWrapping: state.wordWrap,
-    viewportMargin: 30, // Virtual rendering for speed
+    viewportMargin: 30, // Virtual rendering
     extraKeys: {
       'Ctrl-S': () => saveFileHandler(),
       'Cmd-S': () => saveFileHandler(),
@@ -129,25 +131,84 @@ function initEditor() {
       'Cmd-N': () => createNewTab(),
       'Ctrl-W': () => { if (state.activeTabId) closeTab(state.activeTabId); },
       'Cmd-W': () => { if (state.activeTabId) closeTab(state.activeTabId); },
+      'Ctrl-R': () => showFindBar(),
+      'Cmd-R': () => showFindBar(),
       'Ctrl-F': () => showFindBar(),
-      'Cmd-F': () => showFindBar()
+      'Cmd-F': () => showFindBar(),
+      'Ctrl-=': () => changeZoom(10),
+      'Ctrl-+': () => changeZoom(10),
+      'Ctrl--': () => changeZoom(-10),
+      'Ctrl-0': () => resetZoom()
     }
   });
 
+  // Track edits safely without false dirty events
   cmEditor.on('change', () => {
+    if (isProgrammaticChange) return;
+
     const tab = getActiveTab();
     if (tab) {
       tab.content = cmEditor.getValue();
-      tab.isDirty = true;
-      renderTabs();
+      if (!tab.isDirty) {
+        tab.isDirty = true;
+        renderTabs();
+      }
       updateMetrics();
-      saveSession();
+      scheduleSaveSession();
+    }
+
+    if (findBar.classList.contains('show')) {
+      updateSearch();
     }
   });
 
   cmEditor.on('cursorActivity', () => {
     updateCursorInfo();
   });
+
+  // Ctrl + Mouse Wheel Zoom
+  cmEditor.getWrapperElement().addEventListener('wheel', (e) => {
+    if (e.ctrlKey) {
+      e.preventDefault();
+      if (e.deltaY < 0) {
+        changeZoom(10);
+      } else {
+        changeZoom(-10);
+      }
+    }
+  }, { passive: false });
+
+  applyZoom();
+}
+
+// -----------------------------------------------------------------------------
+// DYNAMIC ZOOM ENGINE
+// -----------------------------------------------------------------------------
+function changeZoom(delta) {
+  let z = state.zoomLevel + delta;
+  if (z < 60) z = 60;
+  if (z > 250) z = 250;
+  state.zoomLevel = z;
+  applyZoom();
+}
+
+function resetZoom() {
+  state.zoomLevel = 100;
+  applyZoom();
+}
+
+function applyZoom() {
+  if (!cmEditor) return;
+  const baseSize = 13.5;
+  const calculatedSize = (baseSize * (state.zoomLevel / 100)).toFixed(1);
+  const wrapper = cmEditor.getWrapperElement();
+  wrapper.style.fontSize = `${calculatedSize}px`;
+  cmEditor.refresh();
+
+  if (statusZoom) {
+    statusZoom.textContent = `${Math.round(state.zoomLevel)}%`;
+  }
+  localStorage.setItem('nexouya_zoom', state.zoomLevel);
 }
 
 // -----------------------------------------------------------------------------
@@ -164,7 +225,7 @@ function createNewTab(title = 'untitled.js', content = '', filePath = null) {
   state.tabs.push(newTab);
   renderTabs();
   switchTab(newTab.id);
-  saveSession();
+  scheduleSaveSession();
 }
 
 function switchTab(tabId) {
@@ -178,15 +239,18 @@ function switchTab(tabId) {
   if (!targetTab) return;
 
   if (cmEditor) {
+    isProgrammaticChange = true;
     cmEditor.setValue(targetTab.content);
     cmEditor.clearHistory();
+    isProgrammaticChange = false;
+
     applySyntaxMode(targetTab.title);
   }
 
   renderTabs();
   updateHeaderAndStatus();
   updateMetrics();
-  saveSession();
+  scheduleSaveSession();
 }
 
 function closeTab(tabId, e) {
@@ -194,6 +258,19 @@ function closeTab(tabId, e) {
   const index = state.tabs.findIndex(t => t.id === tabId);
   if (index === -1) return;
 
+  const targetTab = state.tabs[index];
+  if (targetTab.isDirty) {
+    const ok = confirm(`Save changes to "${targetTab.title}" before closing?`);
+    if (ok) {
+      saveFileHandler().then(() => finalizeCloseTab(index, tabId));
+      return;
+    }
+  }
+
+  finalizeCloseTab(index, tabId);
+}
+
+function finalizeCloseTab(index, tabId) {
   state.tabs.splice(index, 1);
   if (state.tabs.length === 0) {
     createNewTab('untitled.txt', '');
@@ -202,7 +279,7 @@ function closeTab(tabId, e) {
     switchTab(nextTab.id);
   } else {
     renderTabs();
-    saveSession();
+    scheduleSaveSession();
   }
 }
 
@@ -287,39 +364,28 @@ function formatBytes(bytes) {
 }
 
 // -----------------------------------------------------------------------------
-// NATIVE FILE DIALOGS & SAVE ENGINE (NO FORCED .TXT)
+// PURE NATIVE FILE EXPLORER DIALOGS (DIRECT THIS PC PICKER)
 // -----------------------------------------------------------------------------
 async function openFileHandler() {
-  // 1. Try Native OS File Dialog via Rust
-  const chosenPath = await invokeTauri('open_file_dialog');
-  if (chosenPath) {
-    const meta = await invokeTauri('inspect_file', { path: chosenPath });
-    if (meta) {
-      const fileName = chosenPath.split(/[/\\]/).pop();
-      createNewTab(fileName, meta.preview, chosenPath);
-      if (meta.is_huge) {
-        hugeFileNotice.style.display = 'inline-flex';
-      } else {
-        hugeFileNotice.style.display = 'none';
-      }
-      return;
+  // Directly trigger Native OS Open Dialog via Rust (rfd)
+  const res = await invokeTauri('open_file_dialog');
+  if (res && !res.canceled && res.file_path) {
+    await loadFileFromDisk(res.file_path);
+  }
+}
+
+async function loadFileFromDisk(filePath) {
+  const meta = await invokeTauri('inspect_file', { path: filePath });
+  if (meta) {
+    const fileName = filePath.split(/[/\\]/).pop();
+    createNewTab(fileName, meta.preview, filePath);
+    if (meta.is_huge) {
+      hugeFileNotice.style.display = 'inline-flex';
+      hugeFileNotice.title = 'File is > 50MB. Read-only mode activated to prevent accidental truncation.';
+    } else {
+      hugeFileNotice.style.display = 'none';
     }
   }
-
-  // 2. Web Fallback if running outside Tauri
-  const input = document.createElement('input');
-  input.type = 'file';
-  input.onchange = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      createNewTab(file.name, ev.target.result, file.name);
-    };
-    reader.readAsText(file);
-  };
-  input.click();
 }
 
 async function saveFileHandler() {
@@ -327,9 +393,11 @@ async function saveFileHandler() {
   if (!tab) return;
 
   if (tab.filePath) {
-    await writeContentToPath(tab.filePath, cmEditor.getValue());
-    tab.isDirty = false;
-    renderTabs();
+    const ok = await invokeTauri('save_file_direct', { path: tab.filePath, contents: cmEditor.getValue() });
+    if (ok !== null) {
+      tab.isDirty = false;
+      renderTabs();
+    }
   } else {
     await saveAsHandler();
   }
@@ -339,66 +407,33 @@ async function saveAsHandler() {
   const tab = getActiveTab();
   const defaultName = tab ? tab.title : 'untitled.txt';
 
-  // 1. First prompt the Save As dialog where the user can pick a name & extension
-  saveFileNameInput.value = defaultName;
-  saveDialog.classList.add('show');
-  saveFileNameInput.focus();
-  saveFileNameInput.select();
-}
+  // DIRECTLY Open Native Windows Explorer (This PC) Save As dialog!
+  // No internal intermediate popup. User types any name and extension directly in This PC!
+  const res = await invokeTauri('save_file_dialog', { defaultName });
 
-// User confirmed name in the Save As dialog -> Open OS Directory Picker (This PC / Explorer)
-dialogConfirmBtn.addEventListener('click', async () => {
-  const chosenName = saveFileNameInput.value.trim() || 'untitled.txt';
-  saveDialog.classList.remove('show');
-
-  // Trigger Native OS Explorer Save Picker with the customized name
-  const nativeSavePath = await invokeTauri('save_file_dialog', { defaultName: chosenName });
-  if (nativeSavePath) {
-    const finalFileName = nativeSavePath.split(/[/\\]/).pop();
-    await writeContentToPath(nativeSavePath, cmEditor.getValue());
-    const tab = getActiveTab();
-    if (tab) {
-      tab.title = finalFileName;
-      tab.filePath = nativeSavePath;
-      tab.isDirty = false;
-      renderTabs();
-      updateHeaderAndStatus();
-      applySyntaxMode(finalFileName);
-    }
-  } else {
-    // If running in pure web browser or user canceled native dialog, download as fallback
-    const tab = getActiveTab();
-    if (tab) {
-      tab.title = chosenName;
-      tab.filePath = chosenName;
-      tab.isDirty = false;
-      triggerDownload(chosenName, cmEditor.getValue());
-      renderTabs();
-      updateHeaderAndStatus();
-      applySyntaxMode(chosenName);
-    }
+  if (!res) {
+    // Pure web fallback
+    triggerDownload(defaultName, cmEditor.getValue());
+    return;
   }
-});
 
-dialogCancelBtn.addEventListener('click', () => saveDialog.classList.remove('show'));
-closeDialogBtn.addEventListener('click', () => saveDialog.classList.remove('show'));
+  if (res.canceled || !res.file_path) {
+    // User pressed Cancel in This PC -> DO NOTHING (Do not download or overwrite)
+    return;
+  }
 
-document.querySelectorAll('.format-chip').forEach(chip => {
-  chip.addEventListener('click', () => {
-    const ext = chip.getAttribute('data-ext');
-    let current = saveFileNameInput.value.trim();
-    if (current.includes('.')) {
-      current = current.substring(0, current.lastIndexOf('.'));
-    }
-    saveFileNameInput.value = (current || 'document') + ext;
-    saveFileNameInput.focus();
-  });
-});
+  const chosenPath = res.file_path;
+  const newFileName = chosenPath.split(/[/\\]/).pop();
 
-async function writeContentToPath(path, content) {
-  const res = await invokeTauri('save_file_direct', { path, contents: content });
-  if (res === null) {
-    triggerDownload(path, content);
+  await invokeTauri('save_file_direct', { path: chosenPath, contents: cmEditor.getValue() });
+
+  if (tab) {
+    tab.title = newFileName;
+    tab.filePath = chosenPath;
+    tab.isDirty = false;
+    renderTabs();
+    updateHeaderAndStatus();
+    applySyntaxMode(newFileName);
   }
 }
 
@@ -414,26 +449,28 @@ function triggerDownload(filename, text) {
   URL.revokeObjectURL(url);
 }
 
-// Drag and Drop
+// Drag and Drop (Preserves full file path & multi-drop)
 window.addEventListener('dragover', e => e.preventDefault());
-window.addEventListener('drop', e => {
+window.addEventListener('drop', async e => {
   e.preventDefault();
   if (e.dataTransfer.files.length > 0) {
-    const file = e.dataTransfer.files[0];
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      createNewTab(file.name, ev.target.result, file.name);
-    };
-    reader.readAsText(file);
+    for (const file of e.dataTransfer.files) {
+      if (file.path) {
+        await loadFileFromDisk(file.path);
+      } else {
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+          createNewTab(file.name, ev.target.result, null);
+        };
+        reader.readAsText(file);
+      }
+    }
   }
 });
 
 // -----------------------------------------------------------------------------
-// SEARCH & REPLACE ENGINE WITH MATCH COUNTER & JUMP-TO
+// SEARCH & REPLACE WITH FULL HIGHLIGHTING, ENTER NAVIGATION & LIVE COUNTER
 // -----------------------------------------------------------------------------
-let searchMatches = [];
-let currentMatchIndex = -1;
-
 function showFindBar() {
   findBar.classList.add('show');
   findInput.focus();
@@ -453,11 +490,34 @@ findInput.addEventListener('input', () => {
   updateSearch();
 });
 
-findNextBtn.addEventListener('click', () => {
+// Enter = Next Match, Shift+Enter = Previous Match
+findInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    if (e.shiftKey) {
+      goToPreviousMatch();
+    } else {
+      goToNextMatch();
+    }
+  } else if (e.key === 'Escape') {
+    hideFindBar();
+  }
+});
+
+findNextBtn.addEventListener('click', goToNextMatch);
+findPrevBtn.addEventListener('click', goToPreviousMatch);
+
+function goToNextMatch() {
   if (searchMatches.length === 0) return;
   currentMatchIndex = (currentMatchIndex + 1) % searchMatches.length;
   jumpToMatch(currentMatchIndex);
-});
+}
+
+function goToPreviousMatch() {
+  if (searchMatches.length === 0) return;
+  currentMatchIndex = (currentMatchIndex - 1 + searchMatches.length) % searchMatches.length;
+  jumpToMatch(currentMatchIndex);
+}
 
 function updateSearch() {
   if (!cmEditor) return;
@@ -475,11 +535,20 @@ function updateSearch() {
   const regex = new RegExp(escapeRegex(query), 'gi');
   let match;
 
-  while ((match = regex.exec(text)) !== null) {
-    const from = cmEditor.posFromIndex(match.index);
-    const to = cmEditor.posFromIndex(match.index + query.length);
-    searchMatches.push({ from, to });
-  }
+  // Search & add real highlight marks
+  cmEditor.operation(() => {
+    while ((match = regex.exec(text)) !== null) {
+      const from = cmEditor.posFromIndex(match.index);
+      const to = cmEditor.posFromIndex(match.index + query.length);
+      searchMatches.push({ from, to });
+
+      // Create CodeMirror Mark Text decoration
+      const mark = cmEditor.markText(from, to, {
+        className: 'cm-search-highlight'
+      });
+      searchMarks.push(mark);
+    }
+  });
 
   updateFindLabel(searchMatches.length, searchMatches.length > 0 ? 1 : 0);
 
@@ -492,8 +561,12 @@ function updateSearch() {
 function jumpToMatch(index) {
   if (index < 0 || index >= searchMatches.length) return;
   const { from, to } = searchMatches[index];
-  cmEditor.setSelection(from, to);
-  cmEditor.scrollIntoView({ from, to }, 40);
+
+  cmEditor.operation(() => {
+    cmEditor.setSelection(from, to);
+    cmEditor.scrollIntoView({ from, to }, 40);
+  });
+
   updateFindLabel(searchMatches.length, index + 1);
 }
 
@@ -502,20 +575,19 @@ function updateFindLabel(total, current) {
   if (!label) {
     label = document.createElement('span');
     label.id = 'searchCountBadge';
-    label.style.fontSize = '11px';
-    label.style.color = 'var(--text-dim)';
-    label.style.fontFamily = 'var(--font-code)';
-    label.style.margin = '0 6px';
+    label.className = 'search-counter-badge';
     findNextBtn.parentNode.insertBefore(label, findNextBtn);
   }
   if (total === 0) {
-    label.textContent = findInput.value ? 'No matches' : '';
+    label.textContent = findInput.value ? '0/0' : '';
   } else {
-    label.textContent = `${current}/${total} matches`;
+    label.textContent = `${current}/${total}`;
   }
 }
 
 function clearSearchHighlights() {
+  searchMarks.forEach(m => m.clear());
+  searchMarks = [];
   const label = document.getElementById('searchCountBadge');
   if (label) label.textContent = '';
 }
@@ -525,7 +597,7 @@ function escapeRegex(string) {
 }
 
 replaceBtn.addEventListener('click', () => {
-  if (!cmEditor || searchMatches.length === 0) return;
+  if (!cmEditor || searchMatches.length === 0 || currentMatchIndex === -1) return;
   const replacement = replaceInput.value;
   const current = searchMatches[currentMatchIndex];
   if (current) {
@@ -541,7 +613,8 @@ replaceAllBtn.addEventListener('click', () => {
   if (!query) return;
 
   const text = cmEditor.getValue();
-  const replaced = text.split(query).join(replacement);
+  const regex = new RegExp(escapeRegex(query), 'gi');
+  const replaced = text.replace(regex, replacement);
   cmEditor.setValue(replaced);
   updateSearch();
 });
@@ -635,6 +708,11 @@ document.getElementById('menuFind').addEventListener('click', showFindBar);
 document.getElementById('menuFormat').addEventListener('click', formatDocument);
 document.getElementById('menuSelectAll').addEventListener('click', () => cmEditor && cmEditor.execCommand('selectAll'));
 
+// Zoom Menu Triggers
+document.getElementById('menuZoomIn')?.addEventListener('click', () => changeZoom(10));
+document.getElementById('menuZoomOut')?.addEventListener('click', () => changeZoom(-10));
+document.getElementById('menuZoomReset')?.addEventListener('click', resetZoom);
+
 quickNewBtn.addEventListener('click', () => createNewTab());
 quickOpenBtn.addEventListener('click', openFileHandler);
 quickSaveBtn.addEventListener('click', saveFileHandler);
@@ -642,13 +720,12 @@ addTabBtn.addEventListener('click', () => createNewTab());
 
 function formatDocument() {
   if (!cmEditor) return;
-  const val = cmEditor.getValue().trim();
+  const val = cmEditor.getValue();
   try {
     const obj = JSON.parse(val);
     cmEditor.setValue(JSON.stringify(obj, null, state.tabSize));
   } catch (err) {
-    const lines = val.split('\n').map(l => l.trimRight());
-    cmEditor.setValue(lines.join('\n'));
+    // Do not trim or corrupt normal non-JSON files!
   }
 }
 
@@ -656,7 +733,6 @@ function formatDocument() {
 window.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
     hideFindBar();
-    saveDialog.classList.remove('show');
   }
 });
 
@@ -664,14 +740,32 @@ function escapeHtml(str) {
   return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
-function saveSession() {
-  localStorage.setItem('nexouya_state', JSON.stringify({
-    tabs: state.tabs,
-    activeTabId: state.activeTabId
-  }));
+// Debounced session saver to prevent lag on every keystroke
+let sessionSaveTimer = null;
+function scheduleSaveSession() {
+  if (sessionSaveTimer) clearTimeout(sessionSaveTimer);
+  sessionSaveTimer = setTimeout(() => {
+    try {
+      // Store lightweight metadata only (limit to max 50KB per tab to never breach localStorage limits!)
+      const safeTabs = state.tabs.map(t => ({
+        id: t.id,
+        title: t.title,
+        filePath: t.filePath,
+        content: t.content.length > 80000 ? t.content.substring(0, 80000) : t.content,
+        isDirty: t.isDirty
+      }));
+
+      localStorage.setItem('nexouya_state', JSON.stringify({
+        tabs: safeTabs,
+        activeTabId: state.activeTabId
+      }));
+    } catch (e) {
+      console.warn('Session save warning:', e);
+    }
+  }, 1000); // Debounced by 1s
 }
 
-// Initial Boot
+// Initial Boot Sequence
 initEditor();
 applyTheme(state.theme);
 wrapStatus.textContent = state.wordWrap ? 'ON' : 'OFF';
@@ -682,6 +776,14 @@ statusSpaces.textContent = `Spaces: ${state.tabSize}`;
 if (state.isRTL && cmEditor) {
   cmEditor.getWrapperElement().style.direction = 'rtl';
 }
+
+// Check startup file from Windows context menu (e.g. "Edit with NEXOUYA PAD <file>")
+(async () => {
+  const startupFile = await invokeTauri('get_startup_file');
+  if (startupFile) {
+    await loadFileFromDisk(startupFile);
+  }
+})();
 
 // Restore Session or Create Initial Clean File
 const saved = localStorage.getItem('nexouya_state');
@@ -708,9 +810,10 @@ export const PAD_MANIFEST = {
     "Native Windows Explorer / Linux GTK file pickers",
     "Save to any format without forced extensions",
     "Memory-mapped zero-copy reader for multi-gigabyte files",
-    "VS Code precision syntax highlighting"
+    "VS Code precision syntax highlighting",
+    "Ctrl + Mouse Wheel dynamic zoom"
   ],
-  version: "0.3.0"
+  version: "0.3.1"
 };
 
 console.log("Ready for production.");`;
