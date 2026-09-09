@@ -6,63 +6,94 @@
   <title>NEXOUYA PAD</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,400;0,500;0,600;1,400&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Vazirmatn:wght@400;500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,400;0,500;0,600;1,400&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/src/style.css">
 </head>
 <body class="theme-dark">
   <div id="app" class="app-root">
 
-    <!-- 1. Native-style Menu Bar (File, Edit, View, Settings) -->
+    <!-- 1. Native-style Menu Bar -->
     <header class="menu-bar">
       <div class="menu-item-group">
         <div class="app-brand">
+          <svg class="brand-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
+            <polyline points="2 17 12 22 22 17"></polyline>
+            <polyline points="2 12 12 17 22 12"></polyline>
+          </svg>
           <span class="brand-text">NEXOUYA PAD</span>
         </div>
 
+        <!-- File Menu -->
         <div class="menu-dropdown-wrapper">
-          <button class="menu-btn" id="menuFileBtn">فایل (File)</button>
+          <button class="menu-btn" id="menuFileBtn">File</button>
           <div class="dropdown-menu" id="fileMenu">
-            <div class="menu-action" id="menuNew"><span class="label">سند جدید</span><span class="shortcut">Ctrl+N</span></div>
-            <div class="menu-action" id="menuOpen"><span class="label">باز کردن فایل...</span><span class="shortcut">Ctrl+O</span></div>
+            <div class="menu-action" id="menuNew"><span class="label">New File</span><span class="shortcut">Ctrl+N</span></div>
+            <div class="menu-action" id="menuOpen"><span class="label">Open File...</span><span class="shortcut">Ctrl+O</span></div>
             <div class="menu-sep"></div>
-            <div class="menu-action" id="menuSave"><span class="label">ذخیره (Save)</span><span class="shortcut">Ctrl+S</span></div>
-            <div class="menu-action" id="menuSaveAs"><span class="label">ذخیره به نام... (Save As)</span><span class="shortcut">Ctrl+Shift+S</span></div>
+            <div class="menu-action" id="menuSave"><span class="label">Save</span><span class="shortcut">Ctrl+S</span></div>
+            <div class="menu-action" id="menuSaveAs"><span class="label">Save As...</span><span class="shortcut">Ctrl+Shift+S</span></div>
+            <div class="menu-sep"></div>
+            <div class="menu-action" id="menuCloseTab"><span class="label">Close Tab</span><span class="shortcut">Ctrl+W</span></div>
           </div>
         </div>
 
+        <!-- Edit Menu -->
         <div class="menu-dropdown-wrapper">
-          <button class="menu-btn" id="menuEditBtn">ویرایش (Edit)</button>
+          <button class="menu-btn" id="menuEditBtn">Edit</button>
           <div class="dropdown-menu" id="editMenu">
-            <div class="menu-action" id="menuFormat"><span class="label">فرمت خودکار JSON / متن</span><span class="shortcut">Alt+F</span></div>
-            <div class="menu-action" id="menuToggleDir"><span class="label">تغییر جهت راست‌چین / چپ‌چین</span><span class="shortcut">Alt+R</span></div>
+            <div class="menu-action" id="menuUndo"><span class="label">Undo</span><span class="shortcut">Ctrl+Z</span></div>
+            <div class="menu-action" id="menuRedo"><span class="label">Redo</span><span class="shortcut">Ctrl+Y</span></div>
+            <div class="menu-sep"></div>
+            <div class="menu-action" id="menuFormat"><span class="label">Format Document / JSON</span><span class="shortcut">Alt+F</span></div>
+            <div class="menu-action" id="menuSelectAll"><span class="label">Select All</span><span class="shortcut">Ctrl+A</span></div>
           </div>
         </div>
 
+        <!-- View Menu -->
         <div class="menu-dropdown-wrapper">
-          <button class="menu-btn" id="menuSettingsBtn">تنظیمات (Settings)</button>
+          <button class="menu-btn" id="menuViewBtn">View</button>
+          <div class="dropdown-menu" id="viewMenu">
+            <div class="menu-action" id="menuToggleWrap"><span class="label">Toggle Word Wrap</span><span class="shortcut" id="wrapStatus">ON</span></div>
+            <div class="menu-action" id="menuToggleLines"><span class="label">Toggle Line Numbers</span><span class="shortcut" id="lineNumStatus">ON</span></div>
+          </div>
+        </div>
+
+        <!-- Settings Menu -->
+        <div class="menu-dropdown-wrapper">
+          <button class="menu-btn" id="menuSettingsBtn">Settings</button>
           <div class="dropdown-menu" id="settingsMenu">
-            <div class="menu-section-title">پوسته ادیتور</div>
-            <div class="menu-action theme-select" data-theme="theme-dark"><span>تم تاریک (VS Dark)</span></div>
-            <div class="menu-action theme-select" data-theme="theme-light"><span>تم روشن (VS Light)</span></div>
+            <div class="menu-section-title">Color Theme</div>
+            <div class="menu-action theme-select" data-theme="theme-dark"><span class="label">VS Dark (Default)</span></div>
+            <div class="menu-action theme-select" data-theme="theme-light"><span class="label">VS Light</span></div>
+            <div class="menu-action theme-select" data-theme="theme-high-contrast"><span class="label">Obsidian High Contrast</span></div>
             <div class="menu-sep"></div>
-            <div class="menu-section-title">زبان و جهت پیش‌فرض</div>
-            <div class="menu-action" id="setLTR"><span>انگلیسی / چپ‌چین (LTR)</span></div>
-            <div class="menu-action" id="setRTL"><span>فارسی / راست‌چین (RTL)</span></div>
+            <div class="menu-section-title">Tab Indentation</div>
+            <div class="menu-action indent-select" data-indent="2"><span class="label">Spaces: 2</span></div>
+            <div class="menu-action indent-select" data-indent="4"><span class="label">Spaces: 4</span></div>
           </div>
         </div>
       </div>
 
-      <!-- Quick Action Buttons -->
+      <!-- Quick Action Toolbar -->
       <div class="quick-tools">
-        <button class="tool-btn" id="quickSaveBtn" title="ذخیره سریع (Ctrl+S)">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <button class="tool-btn" id="quickNewBtn" title="New File (Ctrl+N)">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="12" y1="5" x2="12" y2="19"></line>
+            <line x1="5" y1="12" x2="19" y2="12"></line>
+          </svg>
+        </button>
+        <button class="tool-btn" id="quickOpenBtn" title="Open File (Ctrl+O)">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+          </svg>
+        </button>
+        <button class="tool-btn" id="quickSaveBtn" title="Save Document (Ctrl+S)">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
             <polyline points="17 21 17 13 7 13 7 21"></polyline>
             <polyline points="7 3 7 8 15 8"></polyline>
           </svg>
-        </button>
-        <button class="tool-btn" id="quickDirBtn" title="تغییر جهت فارسی / انگلیسی">
-          <span id="quickDirLabel" style="font-size: 11px; font-weight: 700;">LTR</span>
         </button>
       </div>
     </header>
@@ -70,10 +101,10 @@
     <!-- 2. Tab Strip -->
     <nav class="tabs-container">
       <div class="tabs-scroll" id="tabsScroll"></div>
-      <button class="add-tab-btn" id="addTabBtn" title="تب جدید">+</button>
+      <button class="add-tab-btn" id="addTabBtn" title="New Tab (Ctrl+N)">+</button>
     </nav>
 
-    <!-- 3. Editor Workspace with CodeMirror 5 (True VS Code Syntax Highlighting) -->
+    <!-- 3. Editor Workspace with CodeMirror (True VS Code Syntax Highlighting) -->
     <main class="editor-stage">
       <div id="codeMirrorMount"></div>
     </main>
@@ -81,47 +112,56 @@
     <!-- 4. Status Bar -->
     <footer class="app-status-bar">
       <div class="status-left">
-        <span class="status-cell" id="statusFilePath">بدون عنوان</span>
+        <span class="status-cell" id="statusFilePath">untitled.js</span>
         <span class="status-cell badge" id="statusLanguage">JAVASCRIPT</span>
-        <span class="status-cell" id="hugeFileNotice" style="display:none; color: #ffaa00;">⚡ حالت فایل حجیم (Mmap Stream)</span>
+        <span class="status-cell" id="hugeFileNotice" style="display:none; color: #ffbb00;">⚡ Mmap High-Performance Stream</span>
       </div>
       <div class="status-right">
-        <span class="status-cell" id="statusCursor">سطر ۱، ستون ۱</span>
-        <span class="status-cell" id="statusSize">۰ بایت</span>
+        <span class="status-cell" id="statusCursor">Ln 1, Col 1</span>
+        <span class="status-cell" id="statusSelection" style="display:none;">(0 selected)</span>
+        <span class="status-cell" id="statusSpaces">Spaces: 2</span>
+        <span class="status-cell" id="statusSize">0 B</span>
         <span class="status-cell">UTF-8</span>
+        <span class="status-cell">CRLF</span>
       </div>
     </footer>
 
-    <!-- Native-style Save As Dialog -->
+    <!-- Professional OS-like Save As Dialog -->
     <div class="dialog-backdrop" id="saveDialog">
       <div class="dialog-box">
         <div class="dialog-header">
-          <h4>ذخیره فایل (Save As)</h4>
-          <button class="dialog-close-btn" id="closeDialogBtn">&times;</button>
+          <h4>Save As</h4>
+          <button class="dialog-close-btn" id="closeDialogBtn" title="Close">&times;</button>
         </div>
         <div class="dialog-body">
-          <label>نام فایل به همراه پسوند (مثال: data.json, script.py, config.yaml, file.txt):</label>
-          <input type="text" id="saveFileNameInput" class="dialog-input" placeholder="filename.ext">
+          <label>File name with desired extension:</label>
+          <input type="text" id="saveFileNameInput" class="dialog-input" placeholder="filename.extension">
+          <div class="dialog-suggestions-label">Quick format presets:</div>
           <div class="dialog-suggestions">
-            <span class="sugg-chip" data-ext=".json">JSON</span>
-            <span class="sugg-chip" data-ext=".py">Python</span>
-            <span class="sugg-chip" data-ext=".rs">Rust</span>
-            <span class="sugg-chip" data-ext=".yaml">YAML</span>
-            <span class="sugg-chip" data-ext=".md">Markdown</span>
-            <span class="sugg-chip" data-ext=".env">ENV</span>
-            <span class="sugg-chip" data-ext=".txt">TXT</span>
+            <span class="sugg-chip" data-ext=".json">.json</span>
+            <span class="sugg-chip" data-ext=".js">.js</span>
+            <span class="sugg-chip" data-ext=".ts">.ts</span>
+            <span class="sugg-chip" data-ext=".py">.py</span>
+            <span class="sugg-chip" data-ext=".rs">.rs</span>
+            <span class="sugg-chip" data-ext=".yaml">.yaml</span>
+            <span class="sugg-chip" data-ext=".md">.md</span>
+            <span class="sugg-chip" data-ext=".env">.env</span>
+            <span class="sugg-chip" data-ext=".html">.html</span>
+            <span class="sugg-chip" data-ext=".css">.css</span>
+            <span class="sugg-chip" data-ext=".sql">.sql</span>
+            <span class="sugg-chip" data-ext=".txt">.txt</span>
           </div>
         </div>
         <div class="dialog-footer">
-          <button class="btn btn-secondary" id="dialogCancelBtn">انصراف</button>
-          <button class="btn btn-primary" id="dialogConfirmBtn">ذخیره</button>
+          <button class="btn btn-secondary" id="dialogCancelBtn">Cancel</button>
+          <button class="btn btn-primary" id="dialogConfirmBtn">Save</button>
         </div>
       </div>
     </div>
 
   </div>
 
-  <!-- CodeMirror 5 & Modes via CDN for Instant Zero-Setup Highlight -->
+  <!-- CodeMirror 5 Syntax Highlighting Suite -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/theme/material-darker.min.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/theme/eclipse.min.css">
@@ -132,6 +172,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/yaml/yaml.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/markdown/markdown.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/htmlmixed/htmlmixed.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/xml/xml.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/css/css.min.js"></script>
 
   <script type="module" src="/src/main.js"></script>

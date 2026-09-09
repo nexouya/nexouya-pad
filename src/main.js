@@ -1,20 +1,26 @@
 /**
- * NEXOUYA PAD - Native Core Logic
- * Real CodeMirror Syntax Engine + Rust Mmap File Handling
+ * NEXOUYA PAD - Core Desktop Engine
+ * Pure English Interface, CodeMirror 5 Integration, Mmap Architecture
  */
 
-// Global State
+// Application State
 let state = {
   activeTabId: null,
   tabs: [],
   theme: localStorage.getItem('nexouya_theme') || 'theme-dark',
-  direction: localStorage.getItem('nexouya_dir') || 'ltr'
+  wordWrap: localStorage.getItem('nexouya_wrap') !== 'false',
+  lineNumbers: localStorage.getItem('nexouya_lines') !== 'false',
+  tabSize: parseInt(localStorage.getItem('nexouya_indent') || '2', 10)
 };
 
-// Extension to CodeMirror Mode Mapping (VS Code Style)
+// Extension to CodeMirror Syntax Mapping
 const EXT_MODE_MAP = {
   js: 'javascript',
+  mjs: 'javascript',
+  cjs: 'javascript',
   ts: 'javascript',
+  jsx: 'javascript',
+  tsx: 'javascript',
   json: 'javascript',
   py: 'python',
   rs: 'rust',
@@ -23,10 +29,15 @@ const EXT_MODE_MAP = {
   md: 'markdown',
   markdown: 'markdown',
   html: 'htmlmixed',
+  htm: 'htmlmixed',
+  xml: 'xml',
   css: 'css',
+  scss: 'css',
+  sql: 'text/plain',
   env: 'text/plain',
   txt: 'text/plain',
-  sql: 'text/plain'
+  log: 'text/plain',
+  toml: 'text/plain'
 };
 
 // DOM References
@@ -35,40 +46,60 @@ const addTabBtn = document.getElementById('addTabBtn');
 const statusFilePath = document.getElementById('statusFilePath');
 const statusLanguage = document.getElementById('statusLanguage');
 const statusCursor = document.getElementById('statusCursor');
+const statusSelection = document.getElementById('statusSelection');
+const statusSpaces = document.getElementById('statusSpaces');
 const statusSize = document.getElementById('statusSize');
 const hugeFileNotice = document.getElementById('hugeFileNotice');
+const wrapStatus = document.getElementById('wrapStatus');
+const lineNumStatus = document.getElementById('lineNumStatus');
+
+// Dialog Elements
 const saveDialog = document.getElementById('saveDialog');
 const saveFileNameInput = document.getElementById('saveFileNameInput');
 const dialogConfirmBtn = document.getElementById('dialogConfirmBtn');
 const dialogCancelBtn = document.getElementById('dialogCancelBtn');
 const closeDialogBtn = document.getElementById('closeDialogBtn');
+
+// Quick Buttons
+const quickNewBtn = document.getElementById('quickNewBtn');
+const quickOpenBtn = document.getElementById('quickOpenBtn');
 const quickSaveBtn = document.getElementById('quickSaveBtn');
-const quickDirBtn = document.getElementById('quickDirBtn');
-const quickDirLabel = document.getElementById('quickDirLabel');
 
 // Menus
-const menuButtons = [
+const menuItems = [
   { btn: document.getElementById('menuFileBtn'), menu: document.getElementById('fileMenu') },
   { btn: document.getElementById('menuEditBtn'), menu: document.getElementById('editMenu') },
-  { btn: document.getElementById('menuSettingsBtn'), menu: document.getElementById('settingsMenu') },
+  { btn: document.getElementById('menuViewBtn'), menu: document.getElementById('viewMenu') },
+  { btn: document.getElementById('menuSettingsBtn'), menu: document.getElementById('settingsMenu') }
 ];
 
-// Initialize CodeMirror Editor
 let cmEditor = null;
-function initCodeMirror() {
+
+// Initialize CodeMirror Editor Instance
+function initEditor() {
   const mount = document.getElementById('codeMirrorMount');
   mount.innerHTML = '';
 
-  const themeName = state.theme === 'theme-light' ? 'eclipse' : 'material-darker';
+  const cmTheme = state.theme === 'theme-light' ? 'eclipse' : 'material-darker';
 
   cmEditor = CodeMirror(mount, {
-    lineNumbers: true,
+    lineNumbers: state.lineNumbers,
     mode: 'javascript',
-    theme: themeName,
-    tabSize: 2,
+    theme: cmTheme,
+    tabSize: state.tabSize,
     indentWithTabs: false,
-    lineWrapping: true,
-    viewportMargin: 20 // Ultra performance for massive documents
+    lineWrapping: state.wordWrap,
+    viewportMargin: 30, // Memory-efficient virtual line rendering
+    extraKeys: {
+      'Ctrl-S': () => saveCurrentFile(),
+      'Cmd-S': () => saveCurrentFile(),
+      'Ctrl-O': () => openFilePicker(),
+      'Cmd-O': () => openFilePicker(),
+      'Ctrl-N': () => createNewTab(),
+      'Cmd-N': () => createNewTab(),
+      'Ctrl-W': () => { if (state.activeTabId) closeTab(state.activeTabId); },
+      'Cmd-W': () => { if (state.activeTabId) closeTab(state.activeTabId); }
+    }
   });
 
   cmEditor.on('change', () => {
@@ -77,20 +108,22 @@ function initCodeMirror() {
       tab.content = cmEditor.getValue();
       tab.isDirty = true;
       renderTabs();
-      updateStats();
+      updateMetrics();
       saveSession();
     }
   });
 
-  cmEditor.on('cursorActivity', updateStats);
+  cmEditor.on('cursorActivity', () => {
+    updateCursorInfo();
+  });
 }
 
 // -----------------------------------------------------------------------------
-// TAB OPERATIONS
+// TAB MANAGEMENT
 // -----------------------------------------------------------------------------
 function createNewTab(title = 'untitled.js', content = '', filePath = null) {
   const newTab = {
-    id: 'tab_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
+    id: 'tab_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
     title,
     content,
     filePath,
@@ -115,12 +148,12 @@ function switchTab(tabId) {
   if (cmEditor) {
     cmEditor.setValue(targetTab.content);
     cmEditor.clearHistory();
-    applyFileMode(targetTab.title);
+    applySyntaxMode(targetTab.title);
   }
 
   renderTabs();
   updateHeaderAndStatus();
-  updateStats();
+  updateMetrics();
   saveSession();
 }
 
@@ -151,8 +184,9 @@ function renderTabs() {
     const el = document.createElement('div');
     el.className = `tab-tab ${tab.id === state.activeTabId ? 'active' : ''}`;
     el.innerHTML = `
+      ${tab.isDirty ? '<span class="tab-dirty-bullet" title="Unsaved changes"></span>' : ''}
       <span>${escapeHtml(tab.title)}</span>
-      <span class="tab-close-icon" title="بستن">&times;</span>
+      <span class="tab-close-icon" title="Close Tab (Ctrl+W)">&times;</span>
     `;
     el.addEventListener('click', () => switchTab(tab.id));
     el.querySelector('.tab-close-icon').addEventListener('click', (e) => closeTab(tab.id, e));
@@ -161,15 +195,25 @@ function renderTabs() {
 }
 
 // -----------------------------------------------------------------------------
-// CODE HIGHLIGHTING ENGINE (VS CODE ACCURACY)
+// SYNTAX COLORING & LANGUAGE BADGE
 // -----------------------------------------------------------------------------
-function applyFileMode(filename) {
+function applySyntaxMode(filename) {
   if (!cmEditor) return;
   const ext = filename.split('.').pop().toLowerCase();
   const mode = EXT_MODE_MAP[ext] || 'text/plain';
 
   cmEditor.setOption('mode', mode);
-  statusLanguage.textContent = (ext === filename ? 'TEXT' : ext).toUpperCase();
+
+  let langLabel = ext.toUpperCase();
+  if (ext === 'js') langLabel = 'JAVASCRIPT';
+  else if (ext === 'ts') langLabel = 'TYPESCRIPT';
+  else if (ext === 'py') langLabel = 'PYTHON';
+  else if (ext === 'rs') langLabel = 'RUST';
+  else if (ext === 'md') langLabel = 'MARKDOWN';
+  else if (ext === 'yml' || ext === 'yaml') langLabel = 'YAML';
+  else if (ext === filename) langLabel = 'PLAINTEXT';
+
+  statusLanguage.textContent = langLabel;
 }
 
 // -----------------------------------------------------------------------------
@@ -181,10 +225,23 @@ function updateHeaderAndStatus() {
   statusFilePath.textContent = tab.filePath || tab.title;
 }
 
-function updateStats() {
+function updateCursorInfo() {
   if (!cmEditor) return;
   const cursor = cmEditor.getCursor();
-  statusCursor.textContent = `سطر ${cursor.line + 1}، ستون ${cursor.ch + 1}`;
+  statusCursor.textContent = `Ln ${cursor.line + 1}, Col ${cursor.ch + 1}`;
+
+  const selection = cmEditor.getSelection();
+  if (selection.length > 0) {
+    statusSelection.style.display = 'inline';
+    statusSelection.textContent = `(${selection.length} selected)`;
+  } else {
+    statusSelection.style.display = 'none';
+  }
+}
+
+function updateMetrics() {
+  if (!cmEditor) return;
+  updateCursorInfo();
 
   const text = cmEditor.getValue();
   const bytes = new Blob([text]).size;
@@ -198,14 +255,14 @@ function formatBytes(bytes) {
 }
 
 // -----------------------------------------------------------------------------
-// SAVING ANY FORMAT (NO FORCED .TXT)
+// FILE SAVE ENGINE (UNIVERSAL FORMAT)
 // -----------------------------------------------------------------------------
 function saveCurrentFile() {
   const tab = getActiveTab();
   if (!tab) return;
 
   if (tab.filePath) {
-    triggerDownload(tab.filePath, cmEditor.getValue());
+    performDirectDownload(tab.filePath, cmEditor.getValue());
     tab.isDirty = false;
     renderTabs();
   } else {
@@ -215,9 +272,10 @@ function saveCurrentFile() {
 
 function openSaveDialog() {
   const tab = getActiveTab();
-  saveFileNameInput.value = tab ? tab.title : 'untitled.txt';
+  saveFileNameInput.value = tab ? tab.title : 'document.txt';
   saveDialog.classList.add('show');
   saveFileNameInput.focus();
+  saveFileNameInput.select();
 }
 
 function closeSaveDialog() {
@@ -225,16 +283,16 @@ function closeSaveDialog() {
 }
 
 dialogConfirmBtn.addEventListener('click', () => {
-  const name = saveFileNameInput.value.trim() || 'file.txt';
+  const name = saveFileNameInput.value.trim() || 'document.txt';
   const tab = getActiveTab();
   if (tab) {
     tab.title = name;
     tab.filePath = name;
     tab.isDirty = false;
-    triggerDownload(name, cmEditor.getValue());
+    performDirectDownload(name, cmEditor.getValue());
     renderTabs();
     updateHeaderAndStatus();
-    applyFileMode(name);
+    applySyntaxMode(name);
   }
   closeSaveDialog();
 });
@@ -242,20 +300,20 @@ dialogConfirmBtn.addEventListener('click', () => {
 dialogCancelBtn.addEventListener('click', closeSaveDialog);
 closeDialogBtn.addEventListener('click', closeSaveDialog);
 
-// Quick extension chip selectors in Save As dialog
+// Quick preset chips in Save As dialog
 document.querySelectorAll('.sugg-chip').forEach(chip => {
   chip.addEventListener('click', () => {
     const ext = chip.getAttribute('data-ext');
-    let cur = saveFileNameInput.value.trim();
-    if (cur.includes('.')) {
-      cur = cur.substring(0, cur.lastIndexOf('.'));
+    let current = saveFileNameInput.value.trim();
+    if (current.includes('.')) {
+      current = current.substring(0, current.lastIndexOf('.'));
     }
-    saveFileNameInput.value = (cur || 'document') + ext;
+    saveFileNameInput.value = (current || 'document') + ext;
     saveFileNameInput.focus();
   });
 });
 
-function triggerDownload(filename, text) {
+function performDirectDownload(filename, text) {
   const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -300,37 +358,37 @@ window.addEventListener('drop', e => {
 });
 
 // -----------------------------------------------------------------------------
-// FORMATTING TOOLS (JSON & BEUTIFY)
+// FORMAT DOCUMENT & QUICK TOOLS
 // -----------------------------------------------------------------------------
-function formatCode() {
+function formatDocument() {
   if (!cmEditor) return;
   const val = cmEditor.getValue().trim();
   try {
     const obj = JSON.parse(val);
-    cmEditor.setValue(JSON.stringify(obj, null, 2));
+    cmEditor.setValue(JSON.stringify(obj, null, state.tabSize));
   } catch (err) {
-    // If not JSON, trim line ends
+    // If not JSON, trim trailing whitespaces cleanly
     const lines = val.split('\n').map(l => l.trimRight());
     cmEditor.setValue(lines.join('\n'));
   }
 }
 
 // -----------------------------------------------------------------------------
-// MENU & THEME MANAGEMENT
+// MENU SYSTEM
 // -----------------------------------------------------------------------------
-menuButtons.forEach(({ btn, menu }) => {
+menuItems.forEach(({ btn, menu }) => {
   btn.addEventListener('click', (e) => {
     e.stopPropagation();
-    menuButtons.forEach(m => { if (m.menu !== menu) m.menu.classList.remove('show'); });
+    menuItems.forEach(m => { if (m.menu !== menu) m.menu.classList.remove('show'); });
     menu.classList.toggle('show');
   });
 });
 
 document.addEventListener('click', () => {
-  menuButtons.forEach(m => m.menu.classList.remove('show'));
+  menuItems.forEach(m => m.menu.classList.remove('show'));
 });
 
-// Theme Selectors in Settings Menu
+// Settings: Theme Switcher
 document.querySelectorAll('.theme-select').forEach(item => {
   item.addEventListener('click', () => {
     const theme = item.getAttribute('data-theme');
@@ -349,32 +407,48 @@ function applyTheme(theme) {
   }
 }
 
-// LTR / RTL Direction
-function setDirection(dir) {
-  state.direction = dir;
-  localStorage.setItem('nexouya_dir', dir);
-  quickDirLabel.textContent = dir.toUpperCase();
-  if (cmEditor) {
-    cmEditor.getWrapperElement().style.direction = dir;
-    cmEditor.refresh();
-  }
-}
-
-document.getElementById('setLTR').addEventListener('click', () => setDirection('ltr'));
-document.getElementById('setRTL').addEventListener('click', () => setDirection('rtl'));
-quickDirBtn.addEventListener('click', () => {
-  setDirection(state.direction === 'ltr' ? 'rtl' : 'ltr');
+// Settings: Indentation
+document.querySelectorAll('.indent-select').forEach(item => {
+  item.addEventListener('click', () => {
+    const indent = parseInt(item.getAttribute('data-indent'), 10);
+    state.tabSize = indent;
+    localStorage.setItem('nexouya_indent', indent);
+    statusSpaces.textContent = `Spaces: ${indent}`;
+    if (cmEditor) cmEditor.setOption('tabSize', indent);
+  });
 });
 
-// Menu Actions
+// View Menu: Word Wrap & Line Numbers
+document.getElementById('menuToggleWrap').addEventListener('click', () => {
+  state.wordWrap = !state.wordWrap;
+  localStorage.setItem('nexouya_wrap', state.wordWrap);
+  wrapStatus.textContent = state.wordWrap ? 'ON' : 'OFF';
+  if (cmEditor) cmEditor.setOption('lineWrapping', state.wordWrap);
+});
+
+document.getElementById('menuToggleLines').addEventListener('click', () => {
+  state.lineNumbers = !state.lineNumbers;
+  localStorage.setItem('nexouya_lines', state.lineNumbers);
+  lineNumStatus.textContent = state.lineNumbers ? 'ON' : 'OFF';
+  if (cmEditor) cmEditor.setOption('lineNumbers', state.lineNumbers);
+});
+
+// Menu Action Bindings
 document.getElementById('menuNew').addEventListener('click', () => createNewTab());
 document.getElementById('menuOpen').addEventListener('click', openFilePicker);
 document.getElementById('menuSave').addEventListener('click', saveCurrentFile);
 document.getElementById('menuSaveAs').addEventListener('click', openSaveDialog);
-document.getElementById('menuFormat').addEventListener('click', formatCode);
-document.getElementById('menuToggleDir').addEventListener('click', () => {
-  setDirection(state.direction === 'ltr' ? 'rtl' : 'ltr');
+document.getElementById('menuCloseTab').addEventListener('click', () => {
+  if (state.activeTabId) closeTab(state.activeTabId);
 });
+document.getElementById('menuUndo').addEventListener('click', () => cmEditor && cmEditor.undo());
+document.getElementById('menuRedo').addEventListener('click', () => cmEditor && cmEditor.redo());
+document.getElementById('menuFormat').addEventListener('click', formatDocument);
+document.getElementById('menuSelectAll').addEventListener('click', () => cmEditor && cmEditor.execCommand('selectAll'));
+
+// Quick Buttons
+quickNewBtn.addEventListener('click', () => createNewTab());
+quickOpenBtn.addEventListener('click', openFilePicker);
 quickSaveBtn.addEventListener('click', saveCurrentFile);
 addTabBtn.addEventListener('click', () => createNewTab());
 
@@ -398,16 +472,13 @@ window.addEventListener('keydown', (e) => {
     }
   } else if (e.altKey && e.key.toLowerCase() === 'f') {
     e.preventDefault();
-    formatCode();
-  } else if (e.altKey && e.key.toLowerCase() === 'r') {
-    e.preventDefault();
-    setDirection(state.direction === 'ltr' ? 'rtl' : 'ltr');
+    formatDocument();
   }
 });
 
-// Helpers
-function escapeHtml(s) {
-  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+// Helper utilities
+function escapeHtml(str) {
+  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
 function saveSession() {
@@ -417,12 +488,14 @@ function saveSession() {
   }));
 }
 
-// Initial Boot
-initCodeMirror();
+// Initial Boot Sequence
+initEditor();
 applyTheme(state.theme);
-setDirection(state.direction);
+wrapStatus.textContent = state.wordWrap ? 'ON' : 'OFF';
+lineNumStatus.textContent = state.lineNumbers ? 'ON' : 'OFF';
+statusSpaces.textContent = `Spaces: ${state.tabSize}`;
 
-// Restore or Create Initial Demo File
+// Restore Previous Session or Default Demo
 const saved = localStorage.getItem('nexouya_state');
 if (saved) {
   try {
@@ -430,32 +503,36 @@ if (saved) {
     state.tabs = parsed.tabs || [];
     state.activeTabId = parsed.activeTabId || null;
   } catch (e) {
-    console.error(e);
+    console.error('Session restore error:', e);
   }
 }
 
 if (!state.tabs || state.tabs.length === 0) {
   const initialCode = `// ==========================================
-// NEXOUYA PAD - Professional High-Speed Editor
+// NEXOUYA PAD - Professional Desktop Editor
 // ==========================================
 
-const appConfig = {
-  name: "NEXOUYA PAD",
-  engine: "Rust Mmap + CodeMirror Core",
-  features: [
-    "Ultra-fast file handling without freeze",
-    "Real VS Code syntax highlighting",
-    "Save to any custom extension (.json, .yaml, .env, .py, .rs)",
-    "Engineered desktop UI (Zero AI-cliché)"
-  ],
-  version: 1.0
-};
+import { readChunk, saveFile } from "@tauri/fs-mmap";
 
-function launch() {
-  console.log(\`Running \${appConfig.name} on \${appConfig.engine}\`);
+class HighPerformanceEngine {
+  constructor(config = {}) {
+    this.name = "NEXOUYA PAD";
+    this.version = "1.0.0";
+    this.memoryMapped = true;
+    this.supportedExtensions = [
+      ".json", ".yaml", ".py", ".rs", ".js", ".ts", ".env", ".md"
+    ];
+  }
+
+  async streamLargeFile(path, offset = 0) {
+    // Reads chunks directly via Rust mmap memory mapping
+    console.log(\`Streaming \${path} without loading multi-GBs into RAM\`);
+    return await readChunk(path, offset, 64 * 1024);
+  }
 }
 
-launch();`;
+const engine = new HighPerformanceEngine();
+console.log("Ready.", engine);`;
 
   createNewTab('main.js', initialCode);
 } else {
